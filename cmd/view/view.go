@@ -36,7 +36,28 @@ type sessionItem struct {
 
 func (i sessionItem) FilterValue() string { return i.name }
 func (i sessionItem) Title() string       { return i.name }
-func (i sessionItem) Description() string { return i.status }
+func (i sessionItem) Description() string { 
+	var statusColor lipgloss.Color
+	var statusIcon string
+	
+	switch i.status {
+	case "attached":
+		statusColor = lipgloss.Color("#22C55E") // green
+		statusIcon = "●"
+	case "detached":
+		statusColor = lipgloss.Color("#F59E0B") // amber  
+		statusIcon = "○"
+	case "error":
+		statusColor = lipgloss.Color("#EF4444") // red
+		statusIcon = "✗"
+	default:
+		statusColor = lipgloss.Color("#6B7280") // gray
+		statusIcon = "◯"
+	}
+	
+	statusStyle := lipgloss.NewStyle().Foreground(statusColor)
+	return statusStyle.Render(statusIcon + " " + i.status)
+}
 
 type model struct {
 	list     list.Model
@@ -49,16 +70,34 @@ type model struct {
 
 var (
 	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FFFDF5")).
-			Background(lipgloss.Color("#25A065")).
-			Padding(0, 1)
+			Foreground(lipgloss.Color("#FFFFFF")).
+			Background(lipgloss.Color("#3B82F6")).
+			Padding(0, 1).
+			Bold(true)
 
 	statusBarStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#343433", Dark: "#C1C6B2"}).
-			Background(lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#353533"})
+			Foreground(lipgloss.AdaptiveColor{Light: "#1F2937", Dark: "#F9FAFB"}).
+			Background(lipgloss.AdaptiveColor{Light: "#E5E7EB", Dark: "#374151"})
 
 	helpStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.AdaptiveColor{Light: "#9B9B9B", Dark: "#5C5C5C"})
+			Foreground(lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"})
+
+	listBorderStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.AdaptiveColor{Light: "#D1D5DB", Dark: "#4B5563"})
+
+	viewportBorderStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.AdaptiveColor{Light: "#D1D5DB", Dark: "#4B5563"}).
+			Padding(1)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#EF4444")).
+			Bold(true)
+
+	noSessionsStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280")).
+			Italic(true)
 )
 
 func initialModel() model {
@@ -171,30 +210,40 @@ type refreshMsg struct {
 
 func (m model) View() string {
 	if !m.ready {
-		return "\n  Initializing..."
+		loadingStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#3B82F6")).
+			Bold(true)
+		return "\n  " + loadingStyle.Render("Initializing...")
 	}
 
-	listView := lipgloss.NewStyle().
+	listView := listBorderStyle.
 		Width(m.width / 3).
 		Height(m.height - 2).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
 		Render(m.list.View())
 
 	viewportContent := m.viewport.View()
-	viewportView := lipgloss.NewStyle().
+	viewportView := viewportBorderStyle.
 		Width((m.width * 2 / 3) - 2).
 		Height(m.height - 4).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("62")).
-		Padding(1).
 		Render(viewportContent)
 
 	mainView := lipgloss.JoinHorizontal(lipgloss.Top, listView, viewportView)
 
+	sessionCount := len(m.sessions)
+	var sessionCountColor lipgloss.Color
+	if sessionCount == 0 {
+		sessionCountColor = lipgloss.Color("#6B7280") // gray
+	} else {
+		sessionCountColor = lipgloss.Color("#22C55E") // green
+	}
+	
+	sessionCountStyle := lipgloss.NewStyle().Foreground(sessionCountColor).Bold(true)
 	statusBar := statusBarStyle.Width(m.width).Render(
-		"Sessions: " + fmt.Sprintf("%d", len(m.sessions)) + 
-		" | Press 'r' to refresh, 'd' to delete, 'q' to quit, ↑/↓ to navigate",
+		"Sessions: " + sessionCountStyle.Render(fmt.Sprintf("%d", sessionCount)) + 
+		" | Press " + helpStyle.Render("r") + " to refresh, " + 
+		helpStyle.Render("d") + " to delete, " + 
+		helpStyle.Render("q") + " to quit, " + 
+		helpStyle.Render("↑/↓") + " to navigate",
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, mainView, statusBar)
@@ -205,17 +254,17 @@ func getAgentSessions() []sessionItem {
 	if stateManager == nil {
 		return []sessionItem{{
 			name:   "Error",
-			status: "Failed to create state manager",
-			output: "Error creating state manager",
+			status: "error",
+			output: errorStyle.Render("Error creating state manager"),
 		}}
 	}
 
 	activeSessions, err := stateManager.GetActiveSessionsForRepo()
 	if err != nil {
 		return []sessionItem{{
-			name:   "Error",
-			status: "Failed to get sessions",
-			output: fmt.Sprintf("Error getting active sessions for repo: %v", err),
+			name:   "Error", 
+			status: "error",
+			output: errorStyle.Render("Error getting active sessions for repo: ") + err.Error(),
 		}}
 	}
 
@@ -252,8 +301,11 @@ func getAgentSessions() []sessionItem {
 	if len(sessions) == 0 {
 		return []sessionItem{{
 			name:   "No Sessions",
-			status: "No agent sessions found for this git workspace",
-			output: "No agent sessions are currently running for this git workspace.\n\nTo create an agent session for this workspace:\n1. Run 'uzi prompt' to start a new session\n2. Ensure you're in a git repository",
+			status: "empty",
+			output: noSessionsStyle.Render("No agent sessions are currently running for this git workspace.\n\n") +
+				"To create an agent session for this workspace:\n" +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render("1. Run 'uzi prompt' to start a new session\n") +
+				lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Render("2. Ensure you're in a git repository"),
 		}}
 	}
 
@@ -266,12 +318,12 @@ func getSessionOutput(sessionName string) string {
 	cmd.Stdout = &out
 	
 	if err := cmd.Run(); err != nil {
-		return fmt.Sprintf("Error capturing session output: %v", err)
+		return errorStyle.Render("Error capturing session output: ") + err.Error()
 	}
 	
 	output := out.String()
 	if strings.TrimSpace(output) == "" {
-		return fmt.Sprintf("Session '%s' is active but has no visible output.", sessionName)
+		return noSessionsStyle.Render(fmt.Sprintf("Session '%s' is active but has no visible output.", sessionName))
 	}
 	
 	return output
