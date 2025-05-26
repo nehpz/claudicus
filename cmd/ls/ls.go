@@ -38,7 +38,7 @@ func exec(ctx context.Context, args []string) error {
 	fmt.Printf("Start Command: %s\n", cfg.StartCommand)
 	fmt.Println("\nAgents:")
 	for _, agent := range cfg.Agents {
-		fmt.Printf("- Command: %s (Count: %d)\n", agent.Command, agent.Name)
+		fmt.Printf("- Command: %s (Count: %d)\n", agent.Command, agent.Count)
 	}
 
 	// Original directory listing

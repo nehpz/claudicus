@@ -9,19 +9,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"uzi/pkg/config"
 )
 
 var (
-	fs         = flag.NewFlagSet("uzi prompt", flag.ExitOnError)
-	configPath = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
-	CmdPrompt  = &ffcli.Command{
+	fs        = flag.NewFlagSet("uzi prompt", flag.ExitOnError)
+	count     = fs.Int("count", 1, "number of times to run the command")
+	command   = fs.String("command", "claude", "command to execute")
+	CmdPrompt = &ffcli.Command{
 		Name:       "prompt",
-		ShortUsage: "uzi prompt <prompt>",
+		ShortUsage: "uzi prompt -count=N -command=CMD prompt text...",
 		ShortHelp:  "Run the prompt command with a given prompt",
 		FlagSet:    fs,
 		Exec:       executePrompt,
@@ -59,59 +60,66 @@ func executePrompt(ctx context.Context, args []string) error {
 		return fmt.Errorf("prompt argument is required")
 	}
 
-	prompt := args[0]
-	log.Info("Running prompt command", "prompt", prompt)
+	prompt := strings.Join(args, " ")
+	log.Info("Running prompt command", "prompt", prompt, "count", *count, "command", *command)
 
-	// Load configuration
-	cfg, err := config.LoadConfig(*configPath)
-	if err != nil {
-		log.Error("Error loading config, using default config", "error", err)
-		cfg = &config.Config{}
-	}
+	fmt.Printf("- Command: %s (Count: %d)\n", *command, *count)
 
-	for _, agent := range cfg.Agents {
-		fmt.Printf("- Command: %s (Count: %s)\n", agent.Command, agent.Name)
-		// Execute commands
-
-		agentName := agent.Name
+	for i := 0; i < *count; i++ {
+		agentName, err := getRandomAgent()
+		if err != nil {
+			log.Error("Error getting random agent name", "error", err)
+			continue
+		}
 
 		// Check if git worktree exists
+		// Get the current git hash
+		gitHashCmd := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD")
+		gitHashCmd.Dir = filepath.Dir(os.Args[0])
+		gitHashOutput, err := gitHashCmd.Output()
+		if err != nil {
+			log.Error("Error getting git hash", "error", err)
+			continue
+		}
+		gitHash := strings.TrimSpace(string(gitHashOutput))
+
+		// Prefix the tmux session name with the git hash
+		sessionName := fmt.Sprintf("%s-%s", gitHash, agentName)
+
 		worktreePath := filepath.Join(filepath.Dir(os.Args[0]), "..", agentName)
 		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
 			cmd := fmt.Sprintf("git worktree add -b %s ../%s", agentName, agentName)
-			command := exec.CommandContext(ctx, "sh", "-c", cmd)
-			command.Dir = filepath.Dir(os.Args[0])
-			if err := command.Run(); err != nil {
-				log.Error("Error creating git worktree", "command", cmd, "error", err)
-				continue
-			} else {
+			cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
+			cmdExec.Dir = filepath.Dir(os.Args[0])
+			if err := cmdExec.Run(); err != nil {
 				log.Error("Error creating git worktree", "command", cmd, "error", err)
 				continue
 			}
 		}
 
 		// Check if tmux session exists
-		checkSession := exec.CommandContext(ctx, "tmux", "has-session", "-t", agentName)
+		checkSession := exec.CommandContext(ctx, "tmux", "has-session", "-t", sessionName)
 		if err := checkSession.Run(); err != nil {
 			// Session doesn't exist, create it
-			cmd := fmt.Sprintf("tmux new-session -d -s %s", agentName)
-			command := exec.CommandContext(ctx, "sh", "-c", cmd)
-			command.Dir = worktreePath
-			if err := command.Run(); err != nil {
+			cmd := fmt.Sprintf("tmux new-session -d -s %s", sessionName)
+			cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
+			cmdExec.Dir = worktreePath
+			if err := cmdExec.Run(); err != nil {
 				log.Error("Error creating tmux session", "command", cmd, "error", err)
 				continue
 			}
 		}
 
 		// Always run send-keys command
-		cmd := fmt.Sprintf("tmux send-keys -t %s 'claude %s' C-m", agentName, prompt)
-		command := exec.CommandContext(ctx, "sh", "-c", cmd)
-		command.Dir = worktreePath
-		if err := command.Run(); err != nil {
+		cmd := fmt.Sprintf("tmux send-keys -t %s '%s %s' C-m", sessionName, *command, prompt)
+		cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
+		cmdExec.Dir = worktreePath
+		if err := cmdExec.Run(); err != nil {
 			log.Error("Error sending keys to tmux", "command", cmd, "error", err)
 			continue
 		}
 	}
+
 
 	return nil
 }

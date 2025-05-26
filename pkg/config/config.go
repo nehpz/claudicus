@@ -19,7 +19,7 @@ func DefaultConfig() Config {
 		Agents: []Agent{
 			{
 				Command: "claude",
-				Name:    "bob",
+				Count:   1,
 			},
 		},
 	}
@@ -27,7 +27,7 @@ func DefaultConfig() Config {
 
 type Agent struct {
 	Command string `yaml:"command"`
-	Name    string `yaml:"name"`
+	Count   int    `yaml:"count"`
 }
 
 // LoadConfig loads the configuration from the specified path
