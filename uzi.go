@@ -18,6 +18,7 @@ import (
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
 	"uzi/cmd/run"
+	"uzi/cmd/checkpoint"
 )
 
 var subcommands = []*ffcli.Command{
@@ -25,6 +26,7 @@ var subcommands = []*ffcli.Command{
 	ls.CmdLs,
 	delete.CmdDelete,
 	run.CmdRun,
+	checkpoint.CmdCheckpoint,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
