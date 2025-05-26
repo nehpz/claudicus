@@ -63,14 +63,15 @@ func executePrompt(ctx context.Context, args []string) error {
 	prompt := strings.Join(args, " ")
 	log.Debug("Running prompt command", "prompt", prompt, "count", *count, "command", *command)
 
-	fmt.Printf("- Command: %s (Count: %d)\n", *command, *count)
-
 	for i := 0; i < *count; i++ {
 		agentName, err := getRandomAgent()
+		fmt.Printf("%s: claude: %s\n", agentName,*command)
 		if err != nil {
 			log.Error("Error getting random agent name", "error", err)
 			continue
 		}
+
+
 
 		// Check if git worktree exists
 		// Get the current git hash

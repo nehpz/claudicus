@@ -10,18 +10,26 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"uzi/cmd/delete"
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
-	"uzi/cmd/delete"
 )
 
 var subcommands = []*ffcli.Command{
 	prompt.CmdPrompt,
 	ls.CmdLs,
 	delete.CmdDelete,
+}
+
+var commandAliases = map[string]*regexp.Regexp{
+	"prompt":     regexp.MustCompile(`^p(ro(mpt)?)?$`),
+	"ls":         regexp.MustCompile(`^l(s)?$`),
+	"delete":     regexp.MustCompile(`^d(el(ete)?)?$`),
+	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
 }
 
 func main() {
@@ -44,7 +52,19 @@ func main() {
 		return nil
 	}
 
-	switch err := c.Parse(os.Args[1:]); {
+	// Resolve command aliases before parsing
+	args := os.Args[1:]
+	if len(args) > 0 {
+		cmdName := args[0]
+		for realCmd, pattern := range commandAliases {
+			if pattern.MatchString(cmdName) {
+				args[0] = realCmd
+				break
+			}
+		}
+	}
+
+	switch err := c.Parse(args); {
 	case err == nil:
 	case errors.Is(err, flag.ErrHelp):
 		return
