@@ -61,6 +61,21 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 		return fmt.Errorf("agent branch does not exist: %s", agentName)
 	}
 
+	// Stage all changes and commit on the agent branch
+	addCmd := exec.CommandContext(ctx, "git", "add", ".")
+	addCmd.Dir = agentWorktreePath
+	if err := addCmd.Run(); err != nil {
+		return fmt.Errorf("error staging changes: %v", err)
+	}
+
+	commitCmd := exec.CommandContext(ctx, "git", "commit", "-am", commitMessage)
+	commitCmd.Dir = agentWorktreePath
+	commitCmd.Stdout = os.Stdout
+	commitCmd.Stderr = os.Stderr
+	if err := commitCmd.Run(); err != nil {
+		log.Warn("No unstaged changes to commit, rebasing")
+	}
+
 	// Get the base commit where the agent branch diverged
 	mergeBaseCmd := exec.CommandContext(ctx, "git", "merge-base", currentBranch, agentName)
 	mergeBaseCmd.Dir = currentDir
@@ -79,10 +94,10 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	}
 	changeCount := strings.TrimSpace(string(diffOutput))
 
-	if changeCount == "0" {
-		fmt.Printf("No changes to checkpoint from agent: %s\n", agentName)
-		return nil
-	}
+	// if changeCount == "0" {
+	// 	fmt.Printf("No changes to checkpoint from agent: %s\n", agentName)
+	// 	return nil
+	// }
 
 	fmt.Printf("Checkpointing %s commits from agent: %s\n", changeCount, agentName)
 
@@ -96,21 +111,6 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	}
 
 	fmt.Printf("Successfully checkpointed changes from agent: %s\n", agentName)
-
-	// Stage all changes and commit
-	addCmd := exec.CommandContext(ctx, "git", "add", ".")
-	addCmd.Dir = currentDir
-	if err := addCmd.Run(); err != nil {
-		return fmt.Errorf("error staging changes: %v", err)
-	}
-
-	commitCmd := exec.CommandContext(ctx, "git", "commit", "-am", commitMessage)
-	commitCmd.Dir = currentDir
-	commitCmd.Stdout = os.Stdout
-	commitCmd.Stderr = os.Stderr
-	if err := commitCmd.Run(); err != nil {
-		return fmt.Errorf("error committing changes: %v", err)
-	}
 
 	fmt.Printf("Successfully committed changes with message: %s\n", commitMessage)
 	return nil
