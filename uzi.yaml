@@ -1,0 +1,7 @@
+agents:
+  - command: "claude --model claude-sonnet-4-20250514"
+    name: alice
+  - command: "claude --model claude-sonnet-4-20250514"
+    name: bob
+  - command: "claude --model claude-sonnet-4-20250514"
+    name: stacy
