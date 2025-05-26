@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
+	"uzi/pkg/state"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -119,6 +121,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return refreshMsg{sessions: newSessions, items: items}
 				},
 			)
+		case "d":
+			if selected := m.list.SelectedItem(); selected != nil {
+				if session, ok := selected.(sessionItem); ok {
+					return m, tea.Batch(
+						func() tea.Msg {
+							deleteSession(session.name)
+							newSessions := getAgentSessions()
+							items := make([]list.Item, len(newSessions))
+							for i, session := range newSessions {
+								items[i] = session
+							}
+							return refreshMsg{sessions: newSessions, items: items}
+						},
+					)
+				}
+			}
 		}
 
 		var cmd tea.Cmd
@@ -176,57 +194,66 @@ func (m model) View() string {
 
 	statusBar := statusBarStyle.Width(m.width).Render(
 		"Sessions: " + fmt.Sprintf("%d", len(m.sessions)) + 
-		" | Press 'r' to refresh, 'q' to quit, ↑/↓ to navigate",
+		" | Press 'r' to refresh, 'd' to delete, 'q' to quit, ↑/↓ to navigate",
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, mainView, statusBar)
 }
 
 func getAgentSessions() []sessionItem {
-	cmd := exec.Command("tmux", "ls")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+	stateManager := state.NewStateManager()
+	if stateManager == nil {
+		return []sessionItem{{
+			name:   "Error",
+			status: "Failed to create state manager",
+			output: "Error creating state manager",
+		}}
+	}
+
+	activeSessions, err := stateManager.GetActiveSessionsForRepo()
 	if err != nil {
 		return []sessionItem{{
 			name:   "Error",
 			status: "Failed to get sessions",
-			output: fmt.Sprintf("Error listing tmux sessions: %v", err),
+			output: fmt.Sprintf("Error getting active sessions for repo: %v", err),
 		}}
 	}
 
-	lines := strings.Split(out.String(), "\n")
 	var sessions []sessionItem
 	
-	for _, line := range lines {
-		if strings.HasPrefix(line, "agent-") {
-			sessionName := strings.SplitN(line, ":", 2)[0]
-			
-			parts := strings.Split(line, " ")
-			status := "unknown"
-			if len(parts) > 1 {
-				if strings.Contains(line, "(attached)") {
-					status = "attached"
-				} else {
-					status = "detached"
+	for _, sessionName := range activeSessions {
+		cmd := exec.Command("tmux", "ls")
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		err := cmd.Run()
+		
+		status := "detached"
+		if err == nil {
+			lines := strings.Split(out.String(), "\n")
+			for _, line := range lines {
+				if strings.HasPrefix(line, sessionName+":") {
+					if strings.Contains(line, "(attached)") {
+						status = "attached"
+					}
+					break
 				}
 			}
-			
-			output := getSessionOutput(sessionName)
-			
-			sessions = append(sessions, sessionItem{
-				name:   sessionName,
-				status: status,
-				output: output,
-			})
 		}
+		
+		output := getSessionOutput(sessionName)
+		
+		sessions = append(sessions, sessionItem{
+			name:   sessionName,
+			status: status,
+			output: output,
+		})
 	}
 
 	if len(sessions) == 0 {
 		return []sessionItem{{
 			name:   "No Sessions",
-			status: "No agent sessions found",
-			output: "No agent sessions are currently running.\n\nTo create an agent session, you might need to:\n1. Start your agent processes\n2. Ensure tmux sessions are named with 'agent-' prefix",
+			status: "No agent sessions found for this git workspace",
+			output: "No agent sessions are currently running for this git workspace.\n\nTo create an agent session for this workspace:\n1. Run 'uzi prompt' to start a new session\n2. Ensure you're in a git repository",
 		}}
 	}
 
@@ -248,6 +275,11 @@ func getSessionOutput(sessionName string) string {
 	}
 	
 	return output
+}
+
+func deleteSession(sessionName string) {
+	cmd := exec.Command("tmux", "kill-session", "-t", sessionName)
+	cmd.Run()
 }
 
 func executeView(ctx context.Context, args []string) error {

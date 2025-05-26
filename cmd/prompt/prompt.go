@@ -12,6 +12,7 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"uzi/pkg/agents"
+	"uzi/pkg/state"
 )
 
 var (
@@ -27,7 +28,6 @@ var (
 	}
 )
 
-
 func executePrompt(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("prompt argument is required")
@@ -39,8 +39,6 @@ func executePrompt(ctx context.Context, args []string) error {
 	for i := 0; i < *count; i++ {
 		agentName := agents.GetRandomAgent()
 		fmt.Printf("%s: claude: %s\n", agentName, *command)
-
-
 
 		// Check if git worktree exists
 		// Get the current git hash
@@ -88,8 +86,15 @@ func executePrompt(ctx context.Context, args []string) error {
 			log.Error("Error sending keys to tmux", "command", cmd, "error", err)
 			continue
 		}
-	}
 
+		// Save state after successful prompt execution
+		stateManager := state.NewStateManager()
+		if stateManager != nil {
+			if err := stateManager.SaveState(prompt, sessionName); err != nil {
+				log.Error("Error saving state", "error", err)
+			}
+		}
+	}
 
 	return nil
 }
