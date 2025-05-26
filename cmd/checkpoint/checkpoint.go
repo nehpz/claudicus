@@ -17,19 +17,20 @@ var (
 	fs           = flag.NewFlagSet("uzi checkpoint", flag.ExitOnError)
 	CmdCheckpoint = &ffcli.Command{
 		Name:       "checkpoint",
-		ShortUsage: "uzi checkpoint <agent-name>",
-		ShortHelp:  "Rebase changes from an agent worktree into the current worktree",
+		ShortUsage: "uzi checkpoint <agent-name> <commit-message>",
+		ShortHelp:  "Rebase changes from an agent worktree into the current worktree and commit",
 		FlagSet:    fs,
 		Exec:       executeCheckpoint,
 	}
 )
 
 func executeCheckpoint(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("agent name argument is required")
+	if len(args) < 2 {
+		return fmt.Errorf("agent name and commit message arguments are required")
 	}
 
 	agentName := args[0]
+	commitMessage := args[1]
 	log.Debug("Checkpointing changes from agent", "agent", agentName)
 
 	// Get current directory (should be the main worktree)
@@ -95,5 +96,22 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	}
 
 	fmt.Printf("Successfully checkpointed changes from agent: %s\n", agentName)
+
+	// Stage all changes and commit
+	addCmd := exec.CommandContext(ctx, "git", "add", ".")
+	addCmd.Dir = currentDir
+	if err := addCmd.Run(); err != nil {
+		return fmt.Errorf("error staging changes: %v", err)
+	}
+
+	commitCmd := exec.CommandContext(ctx, "git", "commit", "-am", commitMessage)
+	commitCmd.Dir = currentDir
+	commitCmd.Stdout = os.Stdout
+	commitCmd.Stderr = os.Stderr
+	if err := commitCmd.Run(); err != nil {
+		return fmt.Errorf("error committing changes: %v", err)
+	}
+
+	fmt.Printf("Successfully committed changes with message: %s\n", commitMessage)
 	return nil
 }
