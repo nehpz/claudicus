@@ -17,12 +17,14 @@ import (
 	"uzi/cmd/delete"
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
+	"uzi/cmd/run"
 )
 
 var subcommands = []*ffcli.Command{
 	prompt.CmdPrompt,
 	ls.CmdLs,
 	delete.CmdDelete,
+	run.CmdRun,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
@@ -30,6 +32,7 @@ var commandAliases = map[string]*regexp.Regexp{
 	"ls":         regexp.MustCompile(`^l(s)?$`),
 	"delete":     regexp.MustCompile(`^d(el(ete)?)?$`),
 	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
+	"run":        regexp.MustCompile(`^r(un)?$`),
 }
 
 func main() {
