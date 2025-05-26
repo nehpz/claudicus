@@ -38,7 +38,7 @@ func executePrompt(ctx context.Context, args []string) error {
 
 	for i := 0; i < *count; i++ {
 		agentName := agents.GetRandomAgent()
-		fmt.Printf("%s: claude: %s\n", agentName, *command)
+		fmt.Printf("%s: %s: %s\n", agentName, *command, prompt)
 
 		// Check if git worktree exists
 		// Get the current git hash
@@ -51,8 +51,21 @@ func executePrompt(ctx context.Context, args []string) error {
 		}
 		gitHash := strings.TrimSpace(string(gitHashOutput))
 
+		// Get the git repository name from remote URL
+		gitRemoteCmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
+		gitRemoteCmd.Dir = filepath.Dir(os.Args[0])
+		gitRemoteOutput, err := gitRemoteCmd.Output()
+		if err != nil {
+			log.Error("Error getting git remote", "error", err)
+			continue
+		}
+		remoteURL := strings.TrimSpace(string(gitRemoteOutput))
+		// Extract repository name from URL (handle both https and ssh formats)
+		repoName := filepath.Base(remoteURL)
+		projectDir := strings.TrimSuffix(repoName, ".git")
+
 		// Prefix the tmux session name with the git hash
-		sessionName := fmt.Sprintf("agent-%s-%s", gitHash, agentName)
+		sessionName := fmt.Sprintf("agent-%s-%s-%s", projectDir, gitHash, agentName)
 
 		worktreePath := filepath.Join(filepath.Dir(os.Args[0]), "..", agentName)
 		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {

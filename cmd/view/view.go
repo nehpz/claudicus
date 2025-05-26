@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"uzi/pkg/state"
 
@@ -124,7 +125,10 @@ func initialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.EnterAltScreen
+	return tea.Batch(
+		tea.EnterAltScreen,
+		tickCmd(),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -196,6 +200,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.SetContent(m.sessions[0].output)
 		}
 		return m, nil
+
+	case tickMsg:
+		return m, tea.Batch(
+			tickCmd(),
+			func() tea.Msg {
+				newSessions := getAgentSessions()
+				items := make([]list.Item, len(newSessions))
+				for i, session := range newSessions {
+					items[i] = session
+				}
+				return refreshMsg{sessions: newSessions, items: items}
+			},
+		)
 	}
 
 	var cmd tea.Cmd
@@ -206,6 +223,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 type refreshMsg struct {
 	sessions []sessionItem
 	items    []list.Item
+}
+
+type tickMsg time.Time
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second*2, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 func (m model) View() string {
@@ -330,7 +355,7 @@ func getSessionOutput(sessionName string) string {
 }
 
 func deleteSession(sessionName string) {
-	cmd := exec.Command("tmux", "kill-session", "-t", sessionName)
+	cmd := exec.Command("uzi", "kill", sessionName)
 	cmd.Run()
 }
 

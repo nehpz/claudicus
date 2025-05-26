@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"uzi/cmd/delete"
+	"uzi/cmd/kill"
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
 	"uzi/cmd/run"
@@ -25,7 +25,7 @@ import (
 var subcommands = []*ffcli.Command{
 	prompt.CmdPrompt,
 	ls.CmdLs,
-	delete.CmdDelete,
+	kill.CmdKill,
 	run.CmdRun,
 	checkpoint.CmdCheckpoint,
 	view.CmdView,
@@ -34,7 +34,7 @@ var subcommands = []*ffcli.Command{
 var commandAliases = map[string]*regexp.Regexp{
 	"prompt":     regexp.MustCompile(`^p(ro(mpt)?)?$`),
 	"ls":         regexp.MustCompile(`^l(s)?$`),
-	"delete":     regexp.MustCompile(`^d(el(ete)?)?$`),
+	"kill":       regexp.MustCompile(`^k(ill)?$`),
 	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
 	"run":        regexp.MustCompile(`^r(un)?$`),
 	"view":       regexp.MustCompile(`^v(iew)?$`),

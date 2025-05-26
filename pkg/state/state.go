@@ -140,3 +140,7 @@ func (sm *StateManager) SaveState(prompt, sessionName string) error {
 	return os.WriteFile(sm.statePath, data, 0644)
 }
 
+func (sm *StateManager) GetStatePath() string {
+	return sm.statePath
+}
+

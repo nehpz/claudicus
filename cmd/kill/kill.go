@@ -1,4 +1,4 @@
-package delete
+package kill
 
 import (
 	"context"
@@ -14,17 +14,17 @@ import (
 )
 
 var (
-	fs        = flag.NewFlagSet("uzi delete", flag.ExitOnError)
-	CmdDelete = &ffcli.Command{
-		Name:       "delete",
-		ShortUsage: "uzi delete <agent-name>",
+	fs        = flag.NewFlagSet("uzi kill", flag.ExitOnError)
+	CmdKill = &ffcli.Command{
+		Name:       "kill",
+		ShortUsage: "uzi kill <agent-name>",
 		ShortHelp:  "Delete tmux session and git worktree for the specified agent",
 		FlagSet:    fs,
-		Exec:       executeDelete,
+		Exec:       executeKill,
 	}
 )
 
-func executeDelete(ctx context.Context, args []string) error {
+func executeKill(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("agent name argument is required")
 	}
@@ -81,4 +81,4 @@ func executeDelete(ctx context.Context, args []string) error {
 
 	fmt.Printf("Deleted agent: %s\n", agentName)
 	return nil
-}
+} 
