@@ -1,4 +1,13 @@
-john
+package agents
+
+import (
+	"math/rand"
+	"strings"
+	"time"
+)
+
+// AgentNames contains all available agent names
+const AgentNames = `john
 emily
 michael
 sarah
@@ -115,4 +124,11 @@ genesis
 douglas
 emilia
 henry
-kennedy 
+kennedy`
+
+// GetRandomAgent returns a random agent name from the embedded list
+func GetRandomAgent() string {
+	agents := strings.Split(strings.TrimSpace(AgentNames), "\n")
+	rand.Seed(time.Now().UnixNano())
+	return agents[rand.Intn(len(agents))]
+}

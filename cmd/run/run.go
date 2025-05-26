@@ -78,7 +78,7 @@ func executeRun(ctx context.Context, args []string) error {
 		}
 
 		// Wait a moment for command to execute
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 
 		// Capture the output from the pane
 		captureCmd := exec.Command("tmux", "capture-pane", "-t", session+":uzi-run", "-p")
@@ -93,11 +93,11 @@ func executeRun(ctx context.Context, args []string) error {
 			}
 		}
 
-		// Delete the pane after command execution
-		killWindowCmd := exec.Command("tmux", "kill-window", "-t", session+":uzi-run")
-		if err := killWindowCmd.Run(); err != nil {
-			log.Error("Failed to delete window", "session", session, "error", err)
-		}
+		// // Delete the pane after command execution
+		// killWindowCmd := exec.Command("tmux", "kill-window", "-t", session+":uzi-run")
+		// if err := killWindowCmd.Run(); err != nil {
+		// 	log.Error("Failed to delete window", "session", session, "error", err)
+		// }
 	}
 
 	return nil
