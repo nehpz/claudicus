@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	fs    = flag.NewFlagSet("uzi ls", flag.ExitOnError)
+	fs         = flag.NewFlagSet("uzi ls", flag.ExitOnError)
 	configPath = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
-	CmdLs = &ffcli.Command{
+	CmdLs      = &ffcli.Command{
 		Name:       "ls",
 		ShortUsage: "uzi ls",
 		ShortHelp:  "List files in the current directory",
@@ -25,7 +25,7 @@ var (
 
 func exec(ctx context.Context, args []string) error {
 	log.Info("Running ls command")
-	
+
 	// Load configuration
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
@@ -60,4 +60,4 @@ func exec(ctx context.Context, args []string) error {
 	}
 
 	return nil
-} 
+}

@@ -13,21 +13,21 @@ type Config struct {
 }
 
 func DefaultConfig() Config {
-    return Config{
-        PortRange:    nil,
-        StartCommand: nil,
-        Agents:       []Agent{
-            {
-                Command: "claude",
-		Name:   "bob",
-            },
-        },
-    }
+	return Config{
+		PortRange:    nil,
+		StartCommand: nil,
+		Agents: []Agent{
+			{
+				Command: "claude",
+				Name:    "bob",
+			},
+		},
+	}
 }
 
 type Agent struct {
 	Command string `yaml:"command"`
-	Name   string    `yaml:"name"`
+	Name    string `yaml:"name"`
 }
 
 // LoadConfig loads the configuration from the specified path
@@ -48,4 +48,4 @@ func LoadConfig(path string) (*Config, error) {
 // GetDefaultConfigPath returns the default path for the config file
 func GetDefaultConfigPath() string {
 	return "uzi.yaml"
-} 
+}

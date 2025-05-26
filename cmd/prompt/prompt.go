@@ -1,15 +1,15 @@
 package prompt
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
-    "bufio"
-    "math/rand"
-    "time"
+	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -28,38 +28,37 @@ var (
 	}
 )
 
-
 // getRandomAgent reads agent names from agents.txt and returns a random agent name.
 func getRandomAgent() (string, error) {
-    file, err := os.Open("agents.txt")
-    if err != nil {
-        return "", err
-    }
-    defer file.Close()
+	file, err := os.Open("agents.txt")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
 
-    var agents []string
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        agents = append(agents, scanner.Text())
-    }
+	var agents []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		agents = append(agents, scanner.Text())
+	}
 
-    if err := scanner.Err(); err != nil {
-        return "", err
-    }
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
 
-    if len(agents) == 0 {
-        return "", fmt.Errorf("no agents found in file")
-    }
+	if len(agents) == 0 {
+		return "", fmt.Errorf("no agents found in file")
+	}
 
-    rand.Seed(time.Now().UnixNano())
-    return agents[rand.Intn(len(agents))], nil
+	rand.Seed(time.Now().UnixNano())
+	return agents[rand.Intn(len(agents))], nil
 }
 
 func executePrompt(ctx context.Context, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("prompt argument is required")
 	}
-	
+
 	prompt := args[0]
 	log.Info("Running prompt command", "prompt", prompt)
 
