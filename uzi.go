@@ -15,11 +15,13 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
+	"uzi/cmd/delete"
 )
 
 var subcommands = []*ffcli.Command{
 	prompt.CmdPrompt,
 	ls.CmdLs,
+	delete.CmdDelete,
 }
 
 func main() {

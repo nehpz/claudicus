@@ -1,14 +1,17 @@
 package ls
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
-	"os"
+	"os/exec"
+	"strings"
+
+	"uzi/pkg/config"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"uzi/pkg/config"
 )
 
 var (
@@ -19,44 +22,36 @@ var (
 		ShortUsage: "uzi ls",
 		ShortHelp:  "List files in the current directory",
 		FlagSet:    fs,
-		Exec:       exec,
+		Exec:       executeLs,
 	}
 )
 
-func exec(ctx context.Context, args []string) error {
-	log.Info("Running ls command")
+func executeLs(ctx context.Context, args []string) error {
+	log.Debug("Running ls command")
 
-	// Load configuration
-	cfg, err := config.LoadConfig(*configPath)
+	cmd := exec.Command("tmux", "ls")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
 	if err != nil {
-		log.Error("Error loading config", "error", err)
+		fmt.Println("Error executing tmux command:", err)
 		return err
 	}
 
-	// Print configuration details
-	fmt.Printf("Port Range: %s\n", cfg.PortRange)
-	fmt.Printf("Start Command: %s\n", cfg.StartCommand)
-	fmt.Println("\nAgents:")
-	for _, agent := range cfg.Agents {
-		fmt.Printf("- Command: %s (Count: %d)\n", agent.Command, agent.Count)
-	}
-
-	// Original directory listing
-	files, err := os.ReadDir(".")
-	if err != nil {
-		log.Error("Error reading directory", "error", err)
-		return err
-	}
-
-	// Print directory contents
-	fmt.Println("\nDirectory contents:")
-	for _, file := range files {
-		info, _ := file.Info()
-		if info != nil {
-			fmt.Printf("%s\t%d bytes\n", file.Name(), info.Size())
-		} else {
-			fmt.Println(file.Name())
+	// Parse the output and filter session names
+	lines := strings.Split(out.String(), "\n")
+	var agentSessions []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "agent-") {
+			// Extract the session name (before the first colon)
+			sessionName := strings.SplitN(line, ":", 2)[0]
+			agentSessions = append(agentSessions, sessionName)
 		}
+	}
+
+	// Print the filtered session names
+	for _, session := range agentSessions {
+		fmt.Println(session)
 	}
 
 	return nil

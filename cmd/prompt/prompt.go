@@ -61,7 +61,7 @@ func executePrompt(ctx context.Context, args []string) error {
 	}
 
 	prompt := strings.Join(args, " ")
-	log.Info("Running prompt command", "prompt", prompt, "count", *count, "command", *command)
+	log.Debug("Running prompt command", "prompt", prompt, "count", *count, "command", *command)
 
 	fmt.Printf("- Command: %s (Count: %d)\n", *command, *count)
 
@@ -84,7 +84,7 @@ func executePrompt(ctx context.Context, args []string) error {
 		gitHash := strings.TrimSpace(string(gitHashOutput))
 
 		// Prefix the tmux session name with the git hash
-		sessionName := fmt.Sprintf("%s-%s", gitHash, agentName)
+		sessionName := fmt.Sprintf("agent-%s-%s", gitHash, agentName)
 
 		worktreePath := filepath.Join(filepath.Dir(os.Args[0]), "..", agentName)
 		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
@@ -111,7 +111,7 @@ func executePrompt(ctx context.Context, args []string) error {
 		}
 
 		// Always run send-keys command
-		cmd := fmt.Sprintf("tmux send-keys -t %s '%s %s' C-m", sessionName, *command, prompt)
+		cmd := fmt.Sprintf("tmux send-keys -t %s '%s \"%s\"' C-m", sessionName, *command, prompt)
 		cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
 		cmdExec.Dir = worktreePath
 		if err := cmdExec.Run(); err != nil {
