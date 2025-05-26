@@ -19,6 +19,7 @@ import (
 	"uzi/cmd/prompt"
 	"uzi/cmd/run"
 	"uzi/cmd/checkpoint"
+	"uzi/cmd/view"
 )
 
 var subcommands = []*ffcli.Command{
@@ -27,6 +28,7 @@ var subcommands = []*ffcli.Command{
 	delete.CmdDelete,
 	run.CmdRun,
 	checkpoint.CmdCheckpoint,
+	view.CmdView,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
@@ -35,6 +37,7 @@ var commandAliases = map[string]*regexp.Regexp{
 	"delete":     regexp.MustCompile(`^d(el(ete)?)?$`),
 	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
 	"run":        regexp.MustCompile(`^r(un)?$`),
+	"view":       regexp.MustCompile(`^v(iew)?$`),
 }
 
 func main() {
