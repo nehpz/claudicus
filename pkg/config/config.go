@@ -7,13 +7,15 @@ import (
 )
 
 type Config struct {
-	PortRange    *string `yaml:"port_range"`
+	DevCommand   *string `yaml:"dev"`
+	PortRange    *string `yaml:"portRange"`
 	StartCommand *string `yaml:"start_command"`
 	Agents       []Agent `yaml:"agents"`
 }
 
 func DefaultConfig() Config {
 	return Config{
+		DevCommand:   nil,
 		PortRange:    nil,
 		StartCommand: nil,
 		Agents: []Agent{

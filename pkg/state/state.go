@@ -20,6 +20,7 @@ type AgentState struct {
 	ActiveInTmux bool      `json:"active_in_tmux"`
 	WorktreePath string    `json:"worktree_path"`
 	Status       string    `json:"status"`
+	Port         int       `json:"port,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -106,10 +107,10 @@ func (sm *StateManager) GetActiveSessionsForRepo() ([]string, error) {
 }
 
 func (sm *StateManager) SaveState(prompt, branchName, sessionName, worktreePath string) error {
-	return sm.SaveStateWithStatus(prompt, branchName, sessionName, worktreePath, "Loading")
+	return sm.SaveStateWithStatus(prompt, branchName, sessionName, worktreePath, "Loading", 0)
 }
 
-func (sm *StateManager) SaveStateWithStatus(prompt, branchName, sessionName, worktreePath, status string) error {
+func (sm *StateManager) SaveStateWithStatus(prompt, branchName, sessionName, worktreePath, status string, port int) error {
 	if err := sm.ensureStateDir(); err != nil {
 		return err
 	}
@@ -130,6 +131,7 @@ func (sm *StateManager) SaveStateWithStatus(prompt, branchName, sessionName, wor
 		ActiveInTmux: sm.isActiveInTmux(sessionName),
 		WorktreePath: worktreePath,
 		Status:       status,
+		Port:         port,
 		UpdatedAt:    now,
 	}
 

@@ -13,15 +13,16 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"uzi/cmd/broadcast"
+	"uzi/cmd/checkpoint"
 	"uzi/cmd/kill"
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
 	"uzi/cmd/reset"
 	"uzi/cmd/run"
-	"uzi/cmd/checkpoint"
-	"uzi/cmd/view"
 	"uzi/cmd/watch"
+
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 var subcommands = []*ffcli.Command{
@@ -31,8 +32,8 @@ var subcommands = []*ffcli.Command{
 	reset.CmdReset,
 	run.CmdRun,
 	checkpoint.CmdCheckpoint,
-	view.CmdView,
 	watch.CmdWatch,
+	broadcast.CmdBroadcast,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
@@ -42,8 +43,8 @@ var commandAliases = map[string]*regexp.Regexp{
 	"reset":      regexp.MustCompile(`^re(set)?$`),
 	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
 	"run":        regexp.MustCompile(`^r(un)?$`),
-	"view":       regexp.MustCompile(`^v(iew)?$`),
 	"watch":      regexp.MustCompile(`^w(atch)?$`),
+	"broadcast":  regexp.MustCompile(`^b(roadcast)?$`),
 }
 
 func main() {

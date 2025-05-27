@@ -56,7 +56,7 @@ func (aw *AgentWatcher) capturePaneContent(sessionName string) (string, error) {
 }
 
 func (aw *AgentWatcher) sendKeys(sessionName string, keys string) error {
-	cmd := exec.Command("tmux", "send-keys", "-t", sessionName, keys)
+	cmd := exec.Command("tmux", "send-keys", "-t", sessionName+":agent", keys)
 	return cmd.Run()
 }
 
@@ -70,9 +70,9 @@ func (aw *AgentWatcher) updateSessionStatus(sessionName, status string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get current state: %w", err)
 	}
-	
+
 	// Update the state with new status, preserving other fields
-	return aw.stateManager.SaveStateWithStatus(currentState.Prompt, currentState.BranchName, sessionName, currentState.WorktreePath, status)
+	return aw.stateManager.SaveStateWithStatus(currentState.Prompt, currentState.BranchName, sessionName, currentState.WorktreePath, status, currentState.Port)
 }
 
 func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
@@ -92,6 +92,8 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 	// Check for general continuation prompts
 	if strings.Contains(content, "Press Enter to continue") ||
 		strings.Contains(content, "Continue? (Y/n)") ||
+		strings.Contains(content, "Do you want to proceed?") ||
+		strings.Contains(content, "Do you want to") ||
 		strings.Contains(content, "Proceed? (y/N)") {
 		hasPrompt = true
 	}
@@ -140,18 +142,8 @@ func (aw *AgentWatcher) watchSession(sessionName string) {
 
 			if updated {
 				log.Debug("Session updated", "session", sessionName)
-				// Update state to Running when there's an update
-				if err := aw.updateSessionStatus(sessionName, "Running"); err != nil {
-					log.Error("Failed to update session status", "session", sessionName, "error", err)
-				}
 			} else {
 				// Check if session has no prompt and hasn't updated in 3 cycles
-				monitor := aw.watchedSessions[sessionName]
-				if !hasPrompt && monitor.noUpdateCount >= 3 {
-					if err := aw.updateSessionStatus(sessionName, "Ready"); err != nil {
-						log.Error("Failed to update session status", "session", sessionName, "error", err)
-					}
-				}
 			}
 
 			if hasPrompt {

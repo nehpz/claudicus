@@ -50,15 +50,15 @@ var (
 			Foreground(lipgloss.Color("#DC2626"))
 
 	statusRunningStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#EAB308")).
-			Bold(true)
+				Foreground(lipgloss.Color("#EAB308")).
+				Bold(true)
 
 	statusReadyStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#22C55E")).
-			Bold(true)
+				Foreground(lipgloss.Color("#22C55E")).
+				Bold(true)
 
 	statusUnknownStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280"))
+				Foreground(lipgloss.Color("#6B7280"))
 )
 
 func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (string, string) {
@@ -111,6 +111,27 @@ func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (str
 	return insertions, deletions
 }
 
+func getPaneContent(sessionName string) (string, error) {
+	cmd := exec.Command("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
+}
+
+func getAgentStatus(sessionName string) string {
+	content, err := getPaneContent(sessionName)
+	if err != nil {
+		return "Unknown"
+	}
+
+	if strings.Contains(content, "esc to interrupt") {
+		return "Running"
+	}
+	return "Ready"
+}
+
 func executeLs(ctx context.Context, args []string) error {
 	log.Debug("Running ls command")
 
@@ -130,14 +151,15 @@ func executeLs(ctx context.Context, args []string) error {
 	}
 
 	// Print header
-	fmt.Printf("%-30s %-15s %-10s %-30s %s\n",
+	fmt.Printf("%-30s %-15s %-10s %-30s %-20s %s\n",
 		"AGENT",
-		"BRANCH", 
+		"BRANCH",
 		"STATUS",
 		"PROMPT",
+		"PORT",
 		"CHANGES",
 	)
-	fmt.Println(strings.Repeat("─", 100))
+	fmt.Println(strings.Repeat("─", 120))
 
 	// Print the active sessions in a single line each
 	for _, session := range activeSessions {
@@ -154,7 +176,8 @@ func executeLs(ctx context.Context, args []string) error {
 
 					// Format status with styling
 					var statusDisplay string
-					switch state.Status {
+					status := getAgentStatus(session)
+					switch status {
 					case "Running":
 						statusDisplay = statusRunningStyle.Render("Running")
 					case "Ready":
@@ -179,11 +202,19 @@ func executeLs(ctx context.Context, args []string) error {
 						diffStats = strings.Join(parts, " ")
 					}
 
-					fmt.Printf("%-30s %-15s %-10s %-30s %s\n",
+					// Format port
+					portStr := "-"
+					if state.Port > 0 {
+						portURL := fmt.Sprintf("http://localhost:%d", state.Port)
+						portStr = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Underline(true).Render(portURL)
+					}
+
+					fmt.Printf("%-30s %-15s %-10s %-30s %-20s %s\n",
 						agentStyle.Render(session),
 						branchStyle.Render(state.BranchFrom),
 						statusDisplay,
 						promptStyle.Render(prompt),
+						portStr,
 						diffStats,
 					)
 				}
