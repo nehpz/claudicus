@@ -20,6 +20,7 @@ import (
 	"uzi/cmd/run"
 	"uzi/cmd/checkpoint"
 	"uzi/cmd/view"
+	"uzi/cmd/watch"
 )
 
 var subcommands = []*ffcli.Command{
@@ -29,6 +30,7 @@ var subcommands = []*ffcli.Command{
 	run.CmdRun,
 	checkpoint.CmdCheckpoint,
 	view.CmdView,
+	watch.CmdWatch,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
@@ -38,6 +40,7 @@ var commandAliases = map[string]*regexp.Regexp{
 	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
 	"run":        regexp.MustCompile(`^r(un)?$`),
 	"view":       regexp.MustCompile(`^v(iew)?$`),
+	"watch":      regexp.MustCompile(`^w(atch)?$`),
 }
 
 func main() {
