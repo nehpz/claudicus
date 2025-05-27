@@ -50,8 +50,24 @@ var (
 			Foreground(lipgloss.Color("#DC2626"))
 )
 
-func getGitDiffTotals() (string, string) {
+func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (string, string) {
+	// Get session state to find worktree path
+	states := make(map[string]state.AgentState)
+	if data, err := os.ReadFile(stateManager.GetStatePath()); err != nil {
+		return "0", "0"
+	} else {
+		if err := json.Unmarshal(data, &states); err != nil {
+			return "0", "0"
+		}
+	}
+
+	sessionState, ok := states[sessionName]
+	if !ok || sessionState.WorktreePath == "" {
+		return "0", "0"
+	}
+
 	cmd := exec.Command("git", "diff", "--shortstat")
+	cmd.Dir = sessionState.WorktreePath
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {
@@ -116,7 +132,7 @@ func executeLs(ctx context.Context, args []string) error {
 					}
 
 					// Get git diff totals
-					insertions, deletions := getGitDiffTotals()
+					insertions, deletions := getGitDiffTotals(session, stateManager)
 					var diffStats string
 					if insertions == "0" && deletions == "0" {
 						diffStats = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("no changes")
