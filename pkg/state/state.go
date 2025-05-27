@@ -18,6 +18,7 @@ type AgentState struct {
 	Prompt       string    `json:"prompt"`
 	ActiveInTmux bool      `json:"active_in_tmux"`
 	WorktreePath string    `json:"worktree_path"`
+	Status       string    `json:"status"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -104,6 +105,10 @@ func (sm *StateManager) GetActiveSessionsForRepo() ([]string, error) {
 }
 
 func (sm *StateManager) SaveState(prompt, sessionName, worktreePath string) error {
+	return sm.SaveStateWithStatus(prompt, sessionName, worktreePath, "")
+}
+
+func (sm *StateManager) SaveStateWithStatus(prompt, sessionName, worktreePath, status string) error {
 	if err := sm.ensureStateDir(); err != nil {
 		return err
 	}
@@ -122,6 +127,7 @@ func (sm *StateManager) SaveState(prompt, sessionName, worktreePath string) erro
 		Prompt:       prompt,
 		ActiveInTmux: sm.isActiveInTmux(sessionName),
 		WorktreePath: worktreePath,
+		Status:       status,
 		UpdatedAt:    now,
 	}
 

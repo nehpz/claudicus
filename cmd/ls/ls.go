@@ -48,6 +48,17 @@ var (
 
 	removedStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("#DC2626"))
+
+	statusRunningStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#EAB308")).
+			Bold(true)
+
+	statusReadyStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#22C55E")).
+			Bold(true)
+
+	statusUnknownStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#6B7280"))
 )
 
 func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (string, string) {
@@ -110,9 +121,10 @@ func executeLs(ctx context.Context, args []string) error {
 	}
 
 	// Print header
-	fmt.Printf("%-30s %-15s %-40s %s\n",
+	fmt.Printf("%-30s %-15s %-10s %-30s %s\n",
 		"AGENT",
-		"BRANCH",
+		"BRANCH", 
+		"STATUS",
 		"PROMPT",
 		"CHANGES",
 	)
@@ -127,8 +139,19 @@ func executeLs(ctx context.Context, args []string) error {
 				if state, ok := states[session]; ok {
 					// Truncate prompt if too long
 					prompt := state.Prompt
-					if len(prompt) > 37 {
-						prompt = prompt[:34] + "..."
+					if len(prompt) > 27 {
+						prompt = prompt[:24] + "..."
+					}
+
+					// Format status with styling
+					var statusDisplay string
+					switch state.Status {
+					case "Running":
+						statusDisplay = statusRunningStyle.Render("Running")
+					case "Ready":
+						statusDisplay = statusReadyStyle.Render("Ready")
+					default:
+						statusDisplay = statusUnknownStyle.Render("Unknown")
 					}
 
 					// Get git diff totals
@@ -147,9 +170,10 @@ func executeLs(ctx context.Context, args []string) error {
 						diffStats = strings.Join(parts, " ")
 					}
 
-					fmt.Printf("%-30s %-15s %-40s %s\n",
+					fmt.Printf("%-30s %-15s %-10s %-30s %s\n",
 						agentStyle.Render(session),
 						branchStyle.Render(state.BranchFrom),
+						statusDisplay,
 						promptStyle.Render(prompt),
 						diffStats,
 					)

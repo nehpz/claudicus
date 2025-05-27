@@ -28,6 +28,8 @@ type SessionMonitor struct {
 	sessionName    string
 	prevOutputHash []byte
 	lastUpdated    time.Time
+	updateCount    int
+	noUpdateCount  int
 }
 
 func NewAgentWatcher() *AgentWatcher {
@@ -61,6 +63,17 @@ func (aw *AgentWatcher) tapEnter(sessionName string) error {
 	return aw.sendKeys(sessionName, "Enter")
 }
 
+func (aw *AgentWatcher) updateSessionStatus(sessionName, status string) error {
+	// Get current state to preserve other fields
+	currentState, err := aw.stateManager.GetWorktreeInfo(sessionName)
+	if err != nil {
+		return fmt.Errorf("failed to get current state: %w", err)
+	}
+	
+	// Update the state with new status, preserving other fields
+	return aw.stateManager.SaveStateWithStatus(currentState.Prompt, sessionName, currentState.WorktreePath, status)
+}
+
 func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 	content, err := aw.capturePaneContent(sessionName)
 	if err != nil {
@@ -89,6 +102,8 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 			sessionName:    sessionName,
 			prevOutputHash: aw.hashContent([]byte(content)),
 			lastUpdated:    time.Now(),
+			updateCount:    0,
+			noUpdateCount:  0,
 		}
 		return false, hasPrompt, nil
 	}
@@ -98,9 +113,12 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 	if !bytes.Equal(currentHash, monitor.prevOutputHash) {
 		monitor.prevOutputHash = currentHash
 		monitor.lastUpdated = time.Now()
+		monitor.updateCount++
+		monitor.noUpdateCount = 0
 		return true, hasPrompt, nil
 	}
 
+	monitor.noUpdateCount++
 	return false, hasPrompt, nil
 }
 
@@ -121,6 +139,18 @@ func (aw *AgentWatcher) watchSession(sessionName string) {
 
 			if updated {
 				log.Debug("Session updated", "session", sessionName)
+				// Update state to Running when there's an update
+				if err := aw.updateSessionStatus(sessionName, "Running"); err != nil {
+					log.Error("Failed to update session status", "session", sessionName, "error", err)
+				}
+			} else {
+				// Check if session has no prompt and hasn't updated in 3 cycles
+				monitor := aw.watchedSessions[sessionName]
+				if !hasPrompt && monitor.noUpdateCount >= 3 {
+					if err := aw.updateSessionStatus(sessionName, "Ready"); err != nil {
+						log.Error("Failed to update session status", "session", sessionName, "error", err)
+					}
+				}
 			}
 
 			if hasPrompt {
