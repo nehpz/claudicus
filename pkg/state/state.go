@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,13 +13,13 @@ import (
 )
 
 type AgentState struct {
-	GitRepo        string    `json:"git_repo"`
-	BranchFrom     string    `json:"branch_from"`
-	Prompt         string    `json:"prompt"`
-	ActiveInTmux   bool      `json:"active_in_tmux"`
-	WorktreePath   string    `json:"worktree_path"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	GitRepo      string    `json:"git_repo"`
+	BranchFrom   string    `json:"branch_from"`
+	Prompt       string    `json:"prompt"`
+	ActiveInTmux bool      `json:"active_in_tmux"`
+	WorktreePath string    `json:"worktree_path"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type StateManager struct {
@@ -207,3 +208,22 @@ func (sm *StateManager) RemoveState(sessionName string) error {
 	return os.WriteFile(sm.statePath, data, 0644)
 }
 
+// GetWorktreeInfo returns the worktree information for a given session
+func (sm *StateManager) GetWorktreeInfo(sessionName string) (*AgentState, error) {
+	// Load existing state
+	states := make(map[string]AgentState)
+	if data, err := os.ReadFile(sm.statePath); err != nil {
+		return nil, fmt.Errorf("error reading state file: %w", err)
+	} else {
+		if err := json.Unmarshal(data, &states); err != nil {
+			return nil, fmt.Errorf("error parsing state file: %w", err)
+		}
+	}
+
+	state, ok := states[sessionName]
+	if !ok {
+		return nil, fmt.Errorf("no state found for session: %s", sessionName)
+	}
+
+	return &state, nil
+}

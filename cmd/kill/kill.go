@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"uzi/pkg/state"
+
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"uzi/pkg/state"
 )
 
 var (
-	fs        = flag.NewFlagSet("uzi kill", flag.ExitOnError)
+	fs      = flag.NewFlagSet("uzi kill", flag.ExitOnError)
 	CmdKill = &ffcli.Command{
 		Name:       "kill",
 		ShortUsage: "uzi kill [<agent-name>|all]",
@@ -78,23 +79,30 @@ func executeKill(ctx context.Context, args []string) error {
 	// Remove git worktree
 	worktreePath := filepath.Join(filepath.Dir(os.Args[0]), "..", agentName)
 	if _, err := os.Stat(worktreePath); err == nil {
-		// Worktree exists, remove it
-		removeCmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", "../"+agentName)
-		removeCmd.Dir = filepath.Dir(os.Args[0])
-		if err := removeCmd.Run(); err != nil {
-			log.Error("Error removing git worktree", "path", worktreePath, "error", err)
-		} else {
-			log.Debug("Removed git worktree", "path", worktreePath)
+		// Get worktree path from state
+		worktreeInfo, err := sm.GetWorktreeInfo(sessionToKill)
+		if err != nil {
+			log.Error("Error getting worktree info", "session", sessionToKill, "error", err)
+			return fmt.Errorf("failed to get worktree info: %w", err)
 		}
 
-		// Delete the branch
+		// First, remove the worktree
+		removeCmd := exec.CommandContext(ctx, "git", "worktree", "remove", "--force", worktreeInfo.WorktreePath)
+		removeCmd.Dir = filepath.Dir(os.Args[0])
+		if err := removeCmd.Run(); err != nil {
+			log.Error("Error removing git worktree", "path", worktreeInfo.WorktreePath, "error", err)
+			return fmt.Errorf("failed to remove git worktree: %w", err)
+		}
+		log.Debug("Removed git worktree", "path", worktreeInfo.WorktreePath)
+
+		// Then delete the branch
 		deleteBranchCmd := exec.CommandContext(ctx, "git", "branch", "-D", agentName)
 		deleteBranchCmd.Dir = filepath.Dir(os.Args[0])
 		if err := deleteBranchCmd.Run(); err != nil {
 			log.Error("Error deleting git branch", "branch", agentName, "error", err)
-		} else {
-			log.Debug("Deleted git branch", "branch", agentName)
+			return fmt.Errorf("failed to delete git branch: %w", err)
 		}
+		log.Debug("Deleted git branch", "branch", agentName)
 	}
 
 	// Delete from config store (~/.local/share/uzi/)

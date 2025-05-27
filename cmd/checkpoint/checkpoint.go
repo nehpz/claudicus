@@ -2,19 +2,21 @@ package checkpoint
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
+
+	"uzi/pkg/state"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 var (
-	fs           = flag.NewFlagSet("uzi checkpoint", flag.ExitOnError)
+	fs            = flag.NewFlagSet("uzi checkpoint", flag.ExitOnError)
 	CmdCheckpoint = &ffcli.Command{
 		Name:       "checkpoint",
 		ShortUsage: "uzi checkpoint <agent-name> <commit-message>",
@@ -33,16 +35,51 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	commitMessage := args[1]
 	log.Debug("Checkpointing changes from agent", "agent", agentName)
 
+	// Get state manager to read from config
+	sm := state.NewStateManager()
+	if sm == nil {
+		return fmt.Errorf("could not initialize state manager")
+	}
+
+	// Get active sessions from state
+	activeSessions, err := sm.GetActiveSessionsForRepo()
+	if err != nil {
+		log.Error("Error getting active sessions", "error", err)
+		return err
+	}
+
+	// Find the session with the matching agent name
+	var sessionToCheckpoint string
+	for _, session := range activeSessions {
+		if strings.HasSuffix(session, "-"+agentName) {
+			sessionToCheckpoint = session
+			break
+		}
+	}
+
+	if sessionToCheckpoint == "" {
+		return fmt.Errorf("no active session found for agent: %s", agentName)
+	}
+
+	// Get session state to find worktree path
+	states := make(map[string]state.AgentState)
+	if data, err := os.ReadFile(sm.GetStatePath()); err != nil {
+		return fmt.Errorf("error reading state file: %v", err)
+	} else {
+		if err := json.Unmarshal(data, &states); err != nil {
+			return fmt.Errorf("error parsing state file: %v", err)
+		}
+	}
+
+	sessionState, ok := states[sessionToCheckpoint]
+	if !ok || sessionState.WorktreePath == "" {
+		return fmt.Errorf("invalid state for session: %s", sessionToCheckpoint)
+	}
+
 	// Get current directory (should be the main worktree)
 	currentDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("error getting current directory: %v", err)
-	}
-
-	// Check if agent worktree exists
-	agentWorktreePath := filepath.Join(filepath.Dir(currentDir), agentName)
-	if _, err := os.Stat(agentWorktreePath); os.IsNotExist(err) {
-		return fmt.Errorf("agent worktree does not exist: %s", agentWorktreePath)
 	}
 
 	// Get the current branch name in the main worktree
@@ -63,13 +100,13 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 
 	// Stage all changes and commit on the agent branch
 	addCmd := exec.CommandContext(ctx, "git", "add", ".")
-	addCmd.Dir = agentWorktreePath
+	addCmd.Dir = sessionState.WorktreePath
 	if err := addCmd.Run(); err != nil {
 		return fmt.Errorf("error staging changes: %v", err)
 	}
 
 	commitCmd := exec.CommandContext(ctx, "git", "commit", "-am", commitMessage)
-	commitCmd.Dir = agentWorktreePath
+	commitCmd.Dir = sessionState.WorktreePath
 	commitCmd.Stdout = os.Stdout
 	commitCmd.Stderr = os.Stderr
 	if err := commitCmd.Run(); err != nil {
@@ -94,11 +131,6 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	}
 	changeCount := strings.TrimSpace(string(diffOutput))
 
-	// if changeCount == "0" {
-	// 	fmt.Printf("No changes to checkpoint from agent: %s\n", agentName)
-	// 	return nil
-	// }
-
 	fmt.Printf("Checkpointing %s commits from agent: %s\n", changeCount, agentName)
 
 	// Rebase the agent branch onto the current branch
@@ -111,7 +143,6 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	}
 
 	fmt.Printf("Successfully checkpointed changes from agent: %s\n", agentName)
-
 	fmt.Printf("Successfully committed changes with message: %s\n", commitMessage)
 	return nil
 }

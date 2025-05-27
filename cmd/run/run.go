@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"uzi/pkg/config"
+	"uzi/pkg/state"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -35,33 +36,27 @@ func executeRun(ctx context.Context, args []string) error {
 
 	command := strings.Join(args, " ")
 
-	// Get list of agent sessions
-	cmd := exec.Command("tmux", "ls")
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	err := cmd.Run()
+	// Get state manager to read from config
+	sm := state.NewStateManager()
+	if sm == nil {
+		return fmt.Errorf("could not initialize state manager")
+	}
+
+	// Get active sessions from state
+	activeSessions, err := sm.GetActiveSessionsForRepo()
 	if err != nil {
-		return fmt.Errorf("error listing tmux sessions: %w", err)
+		log.Error("Error getting active sessions", "error", err)
+		return err
 	}
 
-	// Parse the output and filter session names
-	lines := strings.Split(out.String(), "\n")
-	var agentSessions []string
-	for _, line := range lines {
-		if strings.HasPrefix(line, "agent-") {
-			sessionName := strings.SplitN(line, ":", 2)[0]
-			agentSessions = append(agentSessions, sessionName)
-		}
+	if len(activeSessions) == 0 {
+		return fmt.Errorf("no active agent sessions found")
 	}
 
-	if len(agentSessions) == 0 {
-		return fmt.Errorf("no agent sessions found")
-	}
-
-	fmt.Printf("Running command '%s' in %d agent sessions:\n", command, len(agentSessions))
+	fmt.Printf("Running command '%s' in %d agent sessions:\n", command, len(activeSessions))
 
 	// Execute command in each session
-	for _, session := range agentSessions {
+	for _, session := range activeSessions {
 		fmt.Printf("\n=== %s ===\n", session)
 
 		// Only set paneName to "uzi-run" if delete is true. Otherwise make it the command in all lowercase
@@ -94,12 +89,6 @@ func executeRun(ctx context.Context, args []string) error {
 				fmt.Println(output)
 			}
 		}
-
-		// Delete the pane after command execution
-		// killWindowCmd := exec.Command("tmux", "kill-window", "-t", session+":"+paneName)
-		// if err := killWindowCmd.Run(); err != nil {
-		// 	log.Error("Failed to delete window", "session", session, "error", err)
-		// }
 	}
 
 	return nil
