@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -64,6 +65,14 @@ func executePrompt(ctx context.Context, args []string) error {
 		repoName := filepath.Base(remoteURL)
 		projectDir := strings.TrimSuffix(repoName, ".git")
 
+		// Create unique identifier using timestamp and iteration
+		timestamp := time.Now().Unix()
+		uniqueId := fmt.Sprintf("%d-%d", timestamp, i)
+		
+		// Create unique branch and worktree names
+		branchName := fmt.Sprintf("%s-%s-%s-%s", agentName, projectDir, gitHash, uniqueId)
+		worktreeName := fmt.Sprintf("%s-%s-%s-%s", agentName, projectDir, gitHash, uniqueId)
+		
 		// Prefix the tmux session name with the git hash
 		sessionName := fmt.Sprintf("agent-%s-%s-%s", projectDir, gitHash, agentName)
 
@@ -80,9 +89,9 @@ func executePrompt(ctx context.Context, args []string) error {
 			continue
 		}
 
-		worktreePath := filepath.Join(worktreesDir, agentName)
+		worktreePath := filepath.Join(worktreesDir, worktreeName)
 		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-			cmd := fmt.Sprintf("git worktree add -b %s %s", agentName, worktreePath)
+			cmd := fmt.Sprintf("git worktree add -b %s %s", branchName, worktreePath)
 			cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
 			cmdExec.Dir = filepath.Dir(os.Args[0])
 			if err := cmdExec.Run(); err != nil {
