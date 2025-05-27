@@ -77,20 +77,29 @@ func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (str
 		return "0", "0"
 	}
 
-	cmd := exec.Command("git", "diff", "--shortstat")
+	shellCmdString := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
+
+	cmd := exec.Command("sh", "-c", shellCmdString)
 	cmd.Dir = sessionState.WorktreePath
+
 	var out bytes.Buffer
+	var stderr bytes.Buffer // Capture stderr for debugging if needed
 	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
 	if err := cmd.Run(); err != nil {
+		log.Printf("Error running git command sequence: %v\nStderr: %s\nStdout (if any from intermediate steps before reset's >/dev/null): %s", err, stderr.String(), out.String())
 		return "0", "0"
 	}
+
 	output := out.String()
 
 	insertions := "0"
 	deletions := "0"
 
-	insRe := regexp.MustCompile(`(\d+) insertion`) // matches "12 insertions(+)"
-	delRe := regexp.MustCompile(`(\d+) deletion`)  // matches "3 deletions(-)"
+	// Regexes are fine as they were
+	insRe := regexp.MustCompile(`(\d+) insertion(?:s)?\(\+\)`) // Handle singular "insertion"
+	delRe := regexp.MustCompile(`(\d+) deletion(?:s)?\(\-\)`)  // Handle singular "deletion"
 
 	if m := insRe.FindStringSubmatch(output); len(m) > 1 {
 		insertions = m[1]
