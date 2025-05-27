@@ -15,6 +15,7 @@ import (
 type AgentState struct {
 	GitRepo      string    `json:"git_repo"`
 	BranchFrom   string    `json:"branch_from"`
+	BranchName   string    `json:"branch_name"`
 	Prompt       string    `json:"prompt"`
 	ActiveInTmux bool      `json:"active_in_tmux"`
 	WorktreePath string    `json:"worktree_path"`
@@ -104,11 +105,11 @@ func (sm *StateManager) GetActiveSessionsForRepo() ([]string, error) {
 	return activeSessions, nil
 }
 
-func (sm *StateManager) SaveState(prompt, sessionName, worktreePath string) error {
-	return sm.SaveStateWithStatus(prompt, sessionName, worktreePath, "")
+func (sm *StateManager) SaveState(prompt, branchName, sessionName, worktreePath string) error {
+	return sm.SaveStateWithStatus(prompt, branchName, sessionName, worktreePath, "Loading")
 }
 
-func (sm *StateManager) SaveStateWithStatus(prompt, sessionName, worktreePath, status string) error {
+func (sm *StateManager) SaveStateWithStatus(prompt, branchName, sessionName, worktreePath, status string) error {
 	if err := sm.ensureStateDir(); err != nil {
 		return err
 	}
@@ -124,6 +125,7 @@ func (sm *StateManager) SaveStateWithStatus(prompt, sessionName, worktreePath, s
 	agentState := AgentState{
 		GitRepo:      sm.getGitRepo(),
 		BranchFrom:   sm.getBranchFrom(),
+		BranchName:   branchName,
 		Prompt:       prompt,
 		ActiveInTmux: sm.isActiveInTmux(sessionName),
 		WorktreePath: worktreePath,

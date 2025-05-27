@@ -135,7 +135,7 @@ func executePrompt(ctx context.Context, args []string) error {
 		// Save state after successful prompt execution
 		stateManager := state.NewStateManager()
 		if stateManager != nil {
-			if err := stateManager.SaveState(prompt, sessionName, worktreePath); err != nil {
+			if err := stateManager.SaveState(prompt, branchName, sessionName, worktreePath); err != nil {
 				log.Error("Error saving state", "error", err)
 			}
 		}

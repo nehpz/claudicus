@@ -72,7 +72,7 @@ func (aw *AgentWatcher) updateSessionStatus(sessionName, status string) error {
 	}
 	
 	// Update the state with new status, preserving other fields
-	return aw.stateManager.SaveStateWithStatus(currentState.Prompt, sessionName, currentState.WorktreePath, status)
+	return aw.stateManager.SaveStateWithStatus(currentState.Prompt, currentState.BranchName, sessionName, currentState.WorktreePath, status)
 }
 
 func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
