@@ -59,26 +59,26 @@ func executeRun(ctx context.Context, args []string) error {
 	for _, session := range activeSessions {
 		fmt.Printf("\n=== %s ===\n", session)
 
-		// Only set paneName to "uzi-run" if delete is true. Otherwise make it the command in all lowercase
-		paneName := "uzi-run"
-		if *deletePanel == false {
-			paneName = strings.ToLower(command)
-		}
-
-		newWindowCmd := exec.Command("tmux", "new-window", "-t", session, "-n", paneName, "-c", "#{session_path}")
-		if err := newWindowCmd.Run(); err != nil {
+		// Create a new window without specifying name or target to get next unused index
+		// Use -P to print the window info in format session:index
+		newWindowCmd := exec.Command("tmux", "new-window", "-t", session, "-P", "-F", "#{window_index}", "-c", "#{session_path}")
+		windowIndexBytes, err := newWindowCmd.Output()
+		if err != nil {
 			log.Error("Failed to create new window", "session", session, "error", err)
 			continue
 		}
 
-		sendKeysCmd := exec.Command("tmux", "send-keys", "-t", session+":"+paneName, command, "Enter")
+		windowIndex := strings.TrimSpace(string(windowIndexBytes))
+		windowTarget := session + ":" + windowIndex
+
+		sendKeysCmd := exec.Command("tmux", "send-keys", "-t", windowTarget, command, "Enter")
 		if err := sendKeysCmd.Run(); err != nil {
 			log.Error("Failed to send command ", command, " tosession", session, "error", err)
 			continue
 		}
 
 		// Capture the output from the pane
-		captureCmd := exec.Command("tmux", "capture-pane", "-t", session+":"+paneName, "-p")
+		captureCmd := exec.Command("tmux", "capture-pane", "-t", windowTarget, "-p")
 		var captureOut bytes.Buffer
 		captureCmd.Stdout = &captureOut
 		if err := captureCmd.Run(); err != nil {
@@ -87,6 +87,14 @@ func executeRun(ctx context.Context, args []string) error {
 			output := strings.TrimSpace(captureOut.String())
 			if output != "" {
 				fmt.Println(output)
+			}
+		}
+
+		// If delete flag is set, kill the window after capturing output
+		if *deletePanel {
+			killWindowCmd := exec.Command("tmux", "kill-window", "-t", windowTarget)
+			if err := killWindowCmd.Run(); err != nil {
+				log.Error("Failed to kill window", "session", session, "window", windowTarget, "error", err)
 			}
 		}
 	}

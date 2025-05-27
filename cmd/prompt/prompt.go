@@ -146,86 +146,87 @@ func executePrompt(ctx context.Context, args []string) error {
 
 		worktreePath := filepath.Join(worktreesDir, worktreeName)
 		var selectedPort int
-		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-			cmd := fmt.Sprintf("git worktree add -b %s %s", branchName, worktreePath)
-			cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
-			cmdExec.Dir = filepath.Dir(os.Args[0])
-			if err := cmdExec.Run(); err != nil {
-				log.Error("Error creating git worktree", "command", cmd, "error", err)
-				continue
-			}
-
-			// Check if tmux session exists
-			checkSession := exec.CommandContext(ctx, "tmux", "has-session", "-t", sessionName)
-			if err := checkSession.Run(); err != nil {
-				// Session doesn't exist, create it
-				cmd := fmt.Sprintf("tmux new-session -d -s %s -c %s", sessionName, worktreePath)
-				cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
-				if err := cmdExec.Run(); err != nil {
-					log.Error("Error creating tmux session", "command", cmd, "error", err)
-					continue
-				}
-
-				// Rename the first window to "agent"
-				renameCmd := fmt.Sprintf("tmux rename-window -t %s:0 agent", sessionName)
-				renameExec := exec.CommandContext(ctx, "sh", "-c", renameCmd)
-				if err := renameExec.Run(); err != nil {
-					log.Error("Error renaming tmux window", "command", renameCmd, "error", err)
-					continue
-				}
-
-				// Create uzi-dev pane and run dev command if configured
-				if cfg.DevCommand != nil && *cfg.DevCommand != "" && cfg.PortRange != nil && *cfg.PortRange != "" {
-					ports := strings.Split(*cfg.PortRange, "-")
-					if len(ports) == 2 {
-						startPort, _ := strconv.Atoi(ports[0])
-						endPort, _ := strconv.Atoi(ports[1])
-						if startPort > 0 && endPort > 0 && endPort >= startPort {
-							selectedPort, err = findAvailablePort(startPort, endPort, assignedPorts)
-							if err != nil {
-								log.Error("Error finding available port", "error", err)
-								continue
-							}
-							devCmdTemplate := *cfg.DevCommand
-							devCmd := strings.Replace(devCmdTemplate, "$PORT", strconv.Itoa(selectedPort), 1)
-
-							// Create new window named uzi-dev
-							newWindowCmd := fmt.Sprintf("tmux new-window -t %s -n uzi-dev -c %s", sessionName, worktreePath)
-							newWindowExec := exec.CommandContext(ctx, "sh", "-c", newWindowCmd)
-							if err := newWindowExec.Run(); err != nil {
-								log.Error("Error creating new tmux window for dev server", "command", newWindowCmd, "error", err)
-							} else {
-								// Send dev command to the new window
-								sendDevCmd := fmt.Sprintf("tmux send-keys -t %s:uzi-dev '%s' C-m", sessionName, devCmd)
-								sendDevCmdExec := exec.CommandContext(ctx, "sh", "-c", sendDevCmd)
-								if err := sendDevCmdExec.Run(); err != nil {
-									log.Error("Error sending dev command to tmux", "command", sendDevCmd, "error", err)
-								}
-
-								// Send dev command to the new window
-								hitEnterCmd := fmt.Sprintf("tmux send-keys -t %s:agent C-m", sessionName)
-								hitEnterExec := exec.CommandContext(ctx, "sh", "-c", hitEnterCmd)
-								if err := hitEnterExec.Run(); err != nil {
-									log.Error("Error hitting enter in tmux", "command", hitEnterCmd, "error", err)
-								}
-
-							}
-							assignedPorts = append(assignedPorts, selectedPort)
-						} else {
-							log.Warn("Invalid port range in config", "portRange", *cfg.PortRange)
-						}
-					} else {
-						log.Warn("Invalid port range format in config", "portRange", *cfg.PortRange)
-					}
-				}
-			}
+		// Create git worktree
+		cmd := fmt.Sprintf("git worktree add -b %s %s", branchName, worktreePath)
+		cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
+		cmdExec.Dir = filepath.Dir(os.Args[0])
+		if err := cmdExec.Run(); err != nil {
+			log.Error("Error creating git worktree", "command", cmd, "error", err)
+			continue
 		}
+
+		// Create tmux session
+		cmd = fmt.Sprintf("tmux new-session -d -s %s -c %s", sessionName, worktreePath)
+		cmdExec = exec.CommandContext(ctx, "sh", "-c", cmd)
+		if err := cmdExec.Run(); err != nil {
+			log.Error("Error creating tmux session", "command", cmd, "error", err)
+			continue
+		}
+
+		// Rename the first window to "agent"
+		renameCmd := fmt.Sprintf("tmux rename-window -t %s:0 agent", sessionName)
+		renameExec := exec.CommandContext(ctx, "sh", "-c", renameCmd)
+		if err := renameExec.Run(); err != nil {
+			log.Error("Error renaming tmux window", "command", renameCmd, "error", err)
+			continue
+		}
+
+		// Create uzi-dev pane and run dev command if configured
+		if cfg.DevCommand == nil || *cfg.DevCommand == "" || cfg.PortRange == nil || *cfg.PortRange == "" {
+			continue
+		}
+
+		ports := strings.Split(*cfg.PortRange, "-")
+		if len(ports) != 2 {
+			log.Warn("Invalid port range format in config", "portRange", *cfg.PortRange)
+			continue
+		}
+
+		startPort, _ := strconv.Atoi(ports[0])
+		endPort, _ := strconv.Atoi(ports[1])
+		if startPort <= 0 || endPort <= 0 || endPort < startPort {
+			log.Warn("Invalid port range in config", "portRange", *cfg.PortRange)
+			continue
+		}
+
+		selectedPort, err = findAvailablePort(startPort, endPort, assignedPorts)
+		if err != nil {
+			log.Error("Error finding available port", "error", err)
+			continue
+		}
+
+		devCmdTemplate := *cfg.DevCommand
+		devCmd := strings.Replace(devCmdTemplate, "$PORT", strconv.Itoa(selectedPort), 1)
+
+		// Create new window named uzi-dev
+		newWindowCmd := fmt.Sprintf("tmux new-window -t %s -n uzi-dev -c %s", sessionName, worktreePath)
+		newWindowExec := exec.CommandContext(ctx, "sh", "-c", newWindowCmd)
+		if err := newWindowExec.Run(); err != nil {
+			log.Error("Error creating new tmux window for dev server", "command", newWindowCmd, "error", err)
+			continue
+		}
+
+		// Send dev command to the new window
+		sendDevCmd := fmt.Sprintf("tmux send-keys -t %s:uzi-dev '%s' C-m", sessionName, devCmd)
+		sendDevCmdExec := exec.CommandContext(ctx, "sh", "-c", sendDevCmd)
+		if err := sendDevCmdExec.Run(); err != nil {
+			log.Error("Error sending dev command to tmux", "command", sendDevCmd, "error", err)
+		}
+
+		// Hit enter in the agent pane
+		hitEnterCmd := fmt.Sprintf("tmux send-keys -t %s:agent C-m", sessionName)
+		hitEnterExec := exec.CommandContext(ctx, "sh", "-c", hitEnterCmd)
+		if err := hitEnterExec.Run(); err != nil {
+			log.Error("Error hitting enter in tmux", "command", hitEnterCmd, "error", err)
+		}
+
+		assignedPorts = append(assignedPorts, selectedPort)
 
 		// Always run send-keys command to the agent pane
 		tmuxCmd := fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, *command)
-		cmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
-		cmdExec.Dir = worktreePath
-		if err := cmdExec.Run(); err != nil {
+		tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
+		tmuxCmdExec.Dir = worktreePath
+		if err := tmuxCmdExec.Run(); err != nil {
 			log.Error("Error sending keys to tmux", "command", tmuxCmd, "error", err)
 			continue
 		}
@@ -233,7 +234,7 @@ func executePrompt(ctx context.Context, args []string) error {
 		// Save state after successful prompt execution
 		stateManager := state.NewStateManager()
 		if stateManager != nil {
-			if err := stateManager.SaveStateWithStatus(promptText, branchName, sessionName, worktreePath, "Loading", selectedPort); err != nil {
+			if err := stateManager.SaveStateWithPort(promptText, branchName, sessionName, worktreePath, selectedPort); err != nil {
 				log.Error("Error saving state", "error", err)
 			}
 		}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"sort"
 	"strings"
 
 	"uzi/pkg/config"
@@ -150,76 +151,95 @@ func executeLs(ctx context.Context, args []string) error {
 		return nil
 	}
 
+	// Load all states to sort by UpdatedAt
+	states := make(map[string]state.AgentState)
+	if data, err := os.ReadFile(stateManager.GetStatePath()); err == nil {
+		if err := json.Unmarshal(data, &states); err != nil {
+			return fmt.Errorf("error parsing state file: %w", err)
+		}
+	}
+
+	// Create a slice of sessions with their states for sorting
+	type sessionInfo struct {
+		name  string
+		state state.AgentState
+	}
+	var sessions []sessionInfo
+	for _, sessionName := range activeSessions {
+		if state, ok := states[sessionName]; ok {
+			sessions = append(sessions, sessionInfo{name: sessionName, state: state})
+		}
+	}
+
+	// Sort by UpdatedAt (most recent first)
+	sort.Slice(sessions, func(i, j int) bool {
+		return sessions[i].state.UpdatedAt.After(sessions[j].state.UpdatedAt)
+	})
+
 	// Print header
-	fmt.Printf("%-30s %-15s %-10s %-30s %-20s %s\n",
+	fmt.Printf("%-30s %-15s %-20s %-10s %-30s %s\n",
 		"AGENT",
-		"BRANCH",
+		"BRANCH FROM",
+		"BRANCH NAME",
 		"STATUS",
 		"PROMPT",
-		"PORT",
 		"CHANGES",
 	)
 	fmt.Println(strings.Repeat("─", 120))
 
 	// Print the active sessions in a single line each
-	for _, session := range activeSessions {
-		// Get session state
-		states := make(map[string]state.AgentState)
-		if data, err := os.ReadFile(stateManager.GetStatePath()); err == nil {
-			if err := json.Unmarshal(data, &states); err == nil {
-				if state, ok := states[session]; ok {
-					// Truncate prompt if too long
-					prompt := state.Prompt
-					if len(prompt) > 27 {
-						prompt = prompt[:24] + "..."
-					}
+	for _, session := range sessions {
+		sessionName := session.name
+		state := session.state
 
-					// Format status with styling
-					var statusDisplay string
-					status := getAgentStatus(session)
-					switch status {
-					case "Running":
-						statusDisplay = statusRunningStyle.Render("Running")
-					case "Ready":
-						statusDisplay = statusReadyStyle.Render("Ready")
-					default:
-						statusDisplay = statusUnknownStyle.Render("Unknown")
-					}
-
-					// Get git diff totals
-					insertions, deletions := getGitDiffTotals(session, stateManager)
-					var diffStats string
-					if insertions == "0" && deletions == "0" {
-						diffStats = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("no changes")
-					} else {
-						parts := []string{}
-						if insertions != "0" {
-							parts = append(parts, addedStyle.Render("+"+insertions))
-						}
-						if deletions != "0" {
-							parts = append(parts, removedStyle.Render("-"+deletions))
-						}
-						diffStats = strings.Join(parts, " ")
-					}
-
-					// Format port
-					portStr := "-"
-					if state.Port > 0 {
-						portURL := fmt.Sprintf("http://localhost:%d", state.Port)
-						portStr = lipgloss.NewStyle().Foreground(lipgloss.Color("#3B82F6")).Underline(true).Render(portURL)
-					}
-
-					fmt.Printf("%-30s %-15s %-10s %-30s %-20s %s\n",
-						agentStyle.Render(session),
-						branchStyle.Render(state.BranchFrom),
-						statusDisplay,
-						promptStyle.Render(prompt),
-						portStr,
-						diffStats,
-					)
-				}
-			}
+		// Truncate prompt if too long
+		prompt := state.Prompt
+		if len(prompt) > 27 {
+			prompt = prompt[:24] + "..."
 		}
+
+		// Format status with styling
+		var statusDisplay string
+		status := getAgentStatus(sessionName)
+		switch status {
+		case "Running":
+			statusDisplay = statusRunningStyle.Render("Running")
+		case "Ready":
+			statusDisplay = statusReadyStyle.Render("Ready")
+		default:
+			statusDisplay = statusUnknownStyle.Render("Unknown")
+		}
+
+		// Get git diff totals
+		insertions, deletions := getGitDiffTotals(sessionName, stateManager)
+		var diffStats string
+		if insertions == "0" && deletions == "0" {
+			diffStats = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("no changes")
+		} else {
+			parts := []string{}
+			if insertions != "0" {
+				parts = append(parts, addedStyle.Render("+"+insertions))
+			}
+			if deletions != "0" {
+				parts = append(parts, removedStyle.Render("-"+deletions))
+			}
+			diffStats = strings.Join(parts, " ")
+		}
+
+		// Truncate branch name if too long
+		branchName := state.BranchName
+		if len(branchName) > 18 {
+			branchName = branchName[:15] + "..."
+		}
+
+		fmt.Printf("%-30s %-15s %-20s %-10s %-30s %s\n",
+			agentStyle.Render(sessionName),
+			branchStyle.Render(state.BranchFrom),
+			branchStyle.Render(branchName),
+			statusDisplay,
+			promptStyle.Render(prompt),
+			diffStats,
+		)
 	}
 
 	return nil
