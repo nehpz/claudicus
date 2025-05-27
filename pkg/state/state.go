@@ -131,6 +131,11 @@ func (sm *StateManager) SaveState(prompt, sessionName string) error {
 
 	states[sessionName] = agentState
 
+	// Store the worktree branch in agent-specific file
+	if err := sm.storeWorktreeBranch(sessionName); err != nil {
+		log.Error("Error storing worktree branch", "error", err)
+	}
+
 	// Save to file
 	data, err := json.MarshalIndent(states, "", "  ")
 	if err != nil {
@@ -140,7 +145,63 @@ func (sm *StateManager) SaveState(prompt, sessionName string) error {
 	return os.WriteFile(sm.statePath, data, 0644)
 }
 
+func (sm *StateManager) getCurrentBranch() string {
+	cmd := exec.Command("git", "branch", "--show-current")
+	output, err := cmd.Output()
+	if err != nil {
+		log.Debug("Could not get current branch", "error", err)
+		return ""
+	}
+	return strings.TrimSpace(string(output))
+}
+
+func (sm *StateManager) storeWorktreeBranch(sessionName string) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	agentDir := filepath.Join(homeDir, ".local", "share", "uzi", "worktree", sessionName)
+	if err := os.MkdirAll(agentDir, 0755); err != nil {
+		return err
+	}
+
+	branchFile := filepath.Join(agentDir, "tree")
+	currentBranch := sm.getCurrentBranch()
+	if currentBranch == "" {
+		return nil
+	}
+
+	return os.WriteFile(branchFile, []byte(currentBranch), 0644)
+}
+
 func (sm *StateManager) GetStatePath() string {
 	return sm.statePath
+}
+
+func (sm *StateManager) RemoveState(sessionName string) error {
+	// Load existing state
+	states := make(map[string]AgentState)
+	if data, err := os.ReadFile(sm.statePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil // No state file, nothing to remove
+		}
+		return err
+	} else {
+		if err := json.Unmarshal(data, &states); err != nil {
+			return err
+		}
+	}
+
+	// Remove the session from the state
+	delete(states, sessionName)
+
+	// Save updated state to file
+	data, err := json.MarshalIndent(states, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(sm.statePath, data, 0644)
 }
 

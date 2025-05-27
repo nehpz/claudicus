@@ -67,9 +67,22 @@ func executePrompt(ctx context.Context, args []string) error {
 		// Prefix the tmux session name with the git hash
 		sessionName := fmt.Sprintf("agent-%s-%s-%s", projectDir, gitHash, agentName)
 
-		worktreePath := filepath.Join(filepath.Dir(os.Args[0]), "..", agentName)
+		// Get home directory for worktree storage
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			log.Error("Error getting home directory", "error", err)
+			continue
+		}
+
+		worktreesDir := filepath.Join(homeDir, ".local", "share", "uzi", "worktrees")
+		if err := os.MkdirAll(worktreesDir, 0755); err != nil {
+			log.Error("Error creating worktrees directory", "error", err)
+			continue
+		}
+
+		worktreePath := filepath.Join(worktreesDir, agentName)
 		if _, err := os.Stat(worktreePath); os.IsNotExist(err) {
-			cmd := fmt.Sprintf("git worktree add -b %s ../%s", agentName, agentName)
+			cmd := fmt.Sprintf("git worktree add -b %s %s", agentName, worktreePath)
 			cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
 			cmdExec.Dir = filepath.Dir(os.Args[0])
 			if err := cmdExec.Run(); err != nil {

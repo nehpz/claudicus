@@ -17,6 +17,7 @@ import (
 	"uzi/cmd/kill"
 	"uzi/cmd/ls"
 	"uzi/cmd/prompt"
+	"uzi/cmd/reset"
 	"uzi/cmd/run"
 	"uzi/cmd/checkpoint"
 	"uzi/cmd/view"
@@ -27,6 +28,7 @@ var subcommands = []*ffcli.Command{
 	prompt.CmdPrompt,
 	ls.CmdLs,
 	kill.CmdKill,
+	reset.CmdReset,
 	run.CmdRun,
 	checkpoint.CmdCheckpoint,
 	view.CmdView,
@@ -37,6 +39,7 @@ var commandAliases = map[string]*regexp.Regexp{
 	"prompt":     regexp.MustCompile(`^p(ro(mpt)?)?$`),
 	"ls":         regexp.MustCompile(`^l(s)?$`),
 	"kill":       regexp.MustCompile(`^k(ill)?$`),
+	"reset":      regexp.MustCompile(`^re(set)?$`),
 	"checkpoint": regexp.MustCompile(`^c(heckpoint)?$`),
 	"run":        regexp.MustCompile(`^r(un)?$`),
 	"view":       regexp.MustCompile(`^v(iew)?$`),
