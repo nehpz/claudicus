@@ -17,7 +17,7 @@ var (
 	fs        = flag.NewFlagSet("uzi kill", flag.ExitOnError)
 	CmdKill = &ffcli.Command{
 		Name:       "kill",
-		ShortUsage: "uzi kill <agent-name>",
+		ShortUsage: "uzi kill [<agent-name>|all]",
 		ShortHelp:  "Delete tmux session and git worktree for the specified agent",
 		FlagSet:    fs,
 		Exec:       executeKill,
@@ -30,6 +30,9 @@ func executeKill(ctx context.Context, args []string) error {
 	}
 
 	agentName := args[0]
+	if agentName == "all" {
+		return fmt.Errorf("Not implemented: delete all agents")
+	}
 	log.Debug("Deleting tmux session and git worktree", "agent", agentName)
 
 	// Get the current git hash
@@ -81,4 +84,4 @@ func executeKill(ctx context.Context, args []string) error {
 
 	fmt.Printf("Deleted agent: %s\n", agentName)
 	return nil
-} 
+}
