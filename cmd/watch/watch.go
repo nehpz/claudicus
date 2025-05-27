@@ -13,15 +13,16 @@ import (
 	"syscall"
 	"time"
 
+	"uzi/pkg/state"
+
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"uzi/pkg/state"
 )
 
 type AgentWatcher struct {
-	stateManager   *state.StateManager
+	stateManager    *state.StateManager
 	watchedSessions map[string]*SessionMonitor
-	quit           chan bool
+	quit            chan bool
 }
 
 type SessionMonitor struct {
@@ -36,7 +37,7 @@ func NewAgentWatcher() *AgentWatcher {
 	return &AgentWatcher{
 		stateManager:    state.NewStateManager(),
 		watchedSessions: make(map[string]*SessionMonitor),
-		quit:           make(chan bool),
+		quit:            make(chan bool),
 	}
 }
 
@@ -46,7 +47,7 @@ func (aw *AgentWatcher) hashContent(content []byte) []byte {
 }
 
 func (aw *AgentWatcher) capturePaneContent(sessionName string) (string, error) {
-	cmd := exec.Command("tmux", "capture-pane", "-t", sessionName, "-p")
+	cmd := exec.Command("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -82,12 +83,12 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 
 	// Check for specific prompts that need auto-enter
 	hasPrompt := false
-	
+
 	// Check for Claude trust prompt
 	if strings.Contains(content, "Do you trust the files in this folder?") {
 		hasPrompt = true
 	}
-	
+
 	// Check for general continuation prompts
 	if strings.Contains(content, "Press Enter to continue") ||
 		strings.Contains(content, "Continue? (Y/n)") ||
@@ -124,7 +125,7 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 
 func (aw *AgentWatcher) watchSession(sessionName string) {
 	log.Info("Starting to watch session", "session", sessionName)
-	
+
 	for {
 		select {
 		case <-aw.quit:
@@ -200,7 +201,7 @@ func (aw *AgentWatcher) refreshActiveSessions() error {
 
 func (aw *AgentWatcher) Start() {
 	log.Info("Starting Agent Watcher")
-	
+
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)

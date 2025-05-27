@@ -10,10 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"uzi/pkg/agents"
 	"uzi/pkg/state"
+
+	"github.com/charmbracelet/log"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 var (
@@ -68,11 +69,11 @@ func executePrompt(ctx context.Context, args []string) error {
 		// Create unique identifier using timestamp and iteration
 		timestamp := time.Now().Unix()
 		uniqueId := fmt.Sprintf("%d-%d", timestamp, i)
-		
+
 		// Create unique branch and worktree names
 		branchName := fmt.Sprintf("%s-%s-%s-%s", agentName, projectDir, gitHash, uniqueId)
 		worktreeName := fmt.Sprintf("%s-%s-%s-%s", agentName, projectDir, gitHash, uniqueId)
-		
+
 		// Prefix the tmux session name with the git hash
 		sessionName := fmt.Sprintf("agent-%s-%s-%s", projectDir, gitHash, agentName)
 
@@ -109,6 +110,15 @@ func executePrompt(ctx context.Context, args []string) error {
 			cmdExec.Dir = worktreePath
 			if err := cmdExec.Run(); err != nil {
 				log.Error("Error creating tmux session", "command", cmd, "error", err)
+				continue
+			}
+
+			// Rename the first window to "agent"
+			renameCmd := fmt.Sprintf("tmux rename-window -t %s:0 agent", sessionName)
+			renameExec := exec.CommandContext(ctx, "sh", "-c", renameCmd)
+			renameExec.Dir = worktreePath
+			if err := renameExec.Run(); err != nil {
+				log.Error("Error renaming tmux window", "command", renameCmd, "error", err)
 				continue
 			}
 		}
