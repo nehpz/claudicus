@@ -19,6 +19,7 @@ type AgentState struct {
 	Prompt       string    `json:"prompt"`
 	WorktreePath string    `json:"worktree_path"`
 	Port         int       `json:"port,omitempty"`
+	Model        string    `json:"model"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -104,11 +105,11 @@ func (sm *StateManager) GetActiveSessionsForRepo() ([]string, error) {
 	return activeSessions, nil
 }
 
-func (sm *StateManager) SaveState(prompt, branchName, sessionName, worktreePath string) error {
-	return sm.SaveStateWithPort(prompt, branchName, sessionName, worktreePath, 0)
+func (sm *StateManager) SaveState(prompt, branchName, sessionName, worktreePath, model string) error {
+	return sm.SaveStateWithPort(prompt, branchName, sessionName, worktreePath, model, 0)
 }
 
-func (sm *StateManager) SaveStateWithPort(prompt, branchName, sessionName, worktreePath string, port int) error {
+func (sm *StateManager) SaveStateWithPort(prompt, branchName, sessionName, worktreePath, model string, port int) error {
 	if err := sm.ensureStateDir(); err != nil {
 		return err
 	}
@@ -128,6 +129,7 @@ func (sm *StateManager) SaveStateWithPort(prompt, branchName, sessionName, workt
 		Prompt:       prompt,
 		WorktreePath: worktreePath,
 		Port:         port,
+		Model:        model,
 		UpdatedAt:    now,
 	}
 

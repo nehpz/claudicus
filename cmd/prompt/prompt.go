@@ -229,6 +229,29 @@ func executePrompt(ctx context.Context, args []string) error {
 
 			// Create uzi-dev pane and run dev command if configured
 			if cfg.DevCommand == nil || *cfg.DevCommand == "" || cfg.PortRange == nil || *cfg.PortRange == "" {
+				// Hit enter in the agent pane
+				hitEnterCmd := fmt.Sprintf("tmux send-keys -t %s:agent C-m", sessionName)
+				hitEnterExec := exec.CommandContext(ctx, "sh", "-c", hitEnterCmd)
+				if err := hitEnterExec.Run(); err != nil {
+					log.Error("Error hitting enter in tmux", "command", hitEnterCmd, "error", err)
+				}
+
+				// Always run send-keys command to the agent pane
+				tmuxCmd := fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+				tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
+				tmuxCmdExec.Dir = worktreePath
+				if err := tmuxCmdExec.Run(); err != nil {
+					log.Error("Error sending keys to tmux", "command", tmuxCmd, "error", err)
+					continue
+				}
+
+				// Save state before continuing (no port since dev server not started)
+				stateManager := state.NewStateManager()
+				if stateManager != nil {
+					if err := stateManager.SaveState(promptText, branchName, sessionName, worktreePath, commandToUse); err != nil {
+						log.Error("Error saving state", "error", err)
+					}
+				}
 				continue
 			}
 
@@ -290,7 +313,7 @@ func executePrompt(ctx context.Context, args []string) error {
 			// Save state after successful prompt execution
 			stateManager := state.NewStateManager()
 			if stateManager != nil {
-				if err := stateManager.SaveStateWithPort(promptText, branchName, sessionName, worktreePath, selectedPort); err != nil {
+				if err := stateManager.SaveStateWithPort(promptText, branchName, sessionName, worktreePath, commandToUse, selectedPort); err != nil {
 					log.Error("Error saving state", "error", err)
 				}
 			}
