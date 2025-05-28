@@ -99,12 +99,7 @@ portRange: 3000-3010
    uzi broadcast "Make sure to add input validation"
    ```
 
-5. **Check specific agent's work:**
-   ```bash
-   uzi attach -t john
-   ```
-
-6. **Merge completed work:**
+5. **Merge completed work:**
    ```bash
    uzi checkpoint funny-elephant "feat: add user management API"
    ```

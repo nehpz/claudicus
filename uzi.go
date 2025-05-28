@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"uzi/cmd/attach"
 	"uzi/cmd/broadcast"
 	"uzi/cmd/checkpoint"
 	"uzi/cmd/kill"
@@ -35,7 +34,6 @@ var subcommands = []*ffcli.Command{
 	checkpoint.CmdCheckpoint,
 	watch.CmdWatch,
 	broadcast.CmdBroadcast,
-	attach.CmdAttach,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
