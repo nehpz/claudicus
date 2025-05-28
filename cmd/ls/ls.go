@@ -158,7 +158,7 @@ func printSessions(stateManager *state.StateManager, activeSessions []string) er
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	// Print header
-	fmt.Fprintf(w, "AGENT\tMODEL\tSTATUS\tCHANGES\tADDR\tPROMPT\n")
+	fmt.Fprintf(w, "AGENT\tMODEL\tSTATUS    DIFF\tADDR\tPROMPT\n")
 
 	// Print sessions
 	for _, session := range sessions {

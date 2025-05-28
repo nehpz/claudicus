@@ -7,29 +7,15 @@ import (
 )
 
 type Config struct {
-	DevCommand   *string `yaml:"dev"`
-	PortRange    *string `yaml:"portRange"`
-	StartCommand *string `yaml:"start_command"`
-	Agents       []Agent `yaml:"agents"`
+	DevCommand *string `yaml:"devCommand"`
+	PortRange  *string `yaml:"portRange"`
 }
 
 func DefaultConfig() Config {
 	return Config{
-		DevCommand:   nil,
-		PortRange:    nil,
-		StartCommand: nil,
-		Agents: []Agent{
-			{
-				Command: "claude",
-				Count:   1,
-			},
-		},
+		DevCommand: nil,
+		PortRange:  nil,
 	}
-}
-
-type Agent struct {
-	Command string `yaml:"command"`
-	Count   int    `yaml:"count"`
 }
 
 // LoadConfig loads the configuration from the specified path

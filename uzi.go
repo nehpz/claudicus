@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"uzi/cmd/attach"
 	"uzi/cmd/broadcast"
 	"uzi/cmd/checkpoint"
 	"uzi/cmd/kill"
@@ -34,6 +35,7 @@ var subcommands = []*ffcli.Command{
 	checkpoint.CmdCheckpoint,
 	watch.CmdWatch,
 	broadcast.CmdBroadcast,
+	attach.CmdAttach,
 }
 
 var commandAliases = map[string]*regexp.Regexp{
@@ -45,6 +47,7 @@ var commandAliases = map[string]*regexp.Regexp{
 	"run":        regexp.MustCompile(`^r(un)?$`),
 	"watch":      regexp.MustCompile(`^w(atch)?$`),
 	"broadcast":  regexp.MustCompile(`^b(roadcast)?$`),
+	"attach":     regexp.MustCompile(`^a(ttach)?$`),
 }
 
 func main() {

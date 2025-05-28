@@ -1,13 +1,2 @@
-
-command: claude --model claude-sonnet-4-20250514
-
-dev: cd astrobits && yarn && yarn dev --port $PORT
+devCommand: cd astrobits && yarn && yarn dev --port $PORT
 portRange: 3000-3010
-
-agents:
-  - command: "claude --model claude-sonnet-4-20250514"
-    name: alice
-  - command: "claude --model claude-sonnet-4-20250514"
-    name: bob
-  - command: "claude --model claude-sonnet-4-20250514"
-    name: stacy
