@@ -158,7 +158,7 @@ func printSessions(stateManager *state.StateManager, activeSessions []string) er
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	// Print header
-	fmt.Fprintf(w, "AGENT\tMODEL\tSTATUS\tCHANGES\tPROMPT\n")
+	fmt.Fprintf(w, "AGENT\tMODEL\tSTATUS\tADDR\tCHANGES\tPROMPT\n")
 
 	// Print sessions
 	for _, session := range sessions {
@@ -190,11 +190,16 @@ func printSessions(stateManager *state.StateManager, activeSessions []string) er
 			model = "unknown"
 		}
 
-		// Format: agent model status changes prompt
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+		// Format: agent model status addr changes prompt
+		addr := ""
+		if state.Port != 0 {
+			addr = fmt.Sprintf("localhost:%d", state.Port)
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
 			agentName,
 			model,
 			formatStatus(status),
+			addr,
 			changes,
 			state.Prompt,
 		)
