@@ -11,71 +11,42 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"text/tabwriter"
+	"time"
 
 	"uzi/pkg/config"
 	"uzi/pkg/state"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 var (
-	fs         = flag.NewFlagSet("uzi ls", flag.ExitOnError)
-	configPath = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
-	CmdLs      = &ffcli.Command{
+	fs          = flag.NewFlagSet("uzi ls", flag.ExitOnError)
+	configPath  = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
+	allSessions = fs.Bool("a", false, "show all sessions including inactive")
+	CmdLs       = &ffcli.Command{
 		Name:       "ls",
-		ShortUsage: "uzi ls",
-		ShortHelp:  "List files in the current directory",
+		ShortUsage: "uzi ls [-a]",
+		ShortHelp:  "List active agent sessions",
 		FlagSet:    fs,
 		Exec:       executeLs,
 	}
 )
 
-var (
-	agentStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#3B82F6")).
-			Bold(true)
-
-	promptStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#6B7280")).
-			Italic(true)
-
-	branchStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#10B981"))
-
-	addedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#059669"))
-
-	removedStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#DC2626"))
-
-	statusRunningStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#EAB308")).
-				Bold(true)
-
-	statusReadyStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#22C55E")).
-				Bold(true)
-
-	statusUnknownStyle = lipgloss.NewStyle().
-				Foreground(lipgloss.Color("#6B7280"))
-)
-
-func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (string, string) {
+func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (int, int) {
 	// Get session state to find worktree path
 	states := make(map[string]state.AgentState)
 	if data, err := os.ReadFile(stateManager.GetStatePath()); err != nil {
-		return "0", "0"
+		return 0, 0
 	} else {
 		if err := json.Unmarshal(data, &states); err != nil {
-			return "0", "0"
+			return 0, 0
 		}
 	}
 
 	sessionState, ok := states[sessionName]
 	if !ok || sessionState.WorktreePath == "" {
-		return "0", "0"
+		return 0, 0
 	}
 
 	shellCmdString := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
@@ -84,29 +55,27 @@ func getGitDiffTotals(sessionName string, stateManager *state.StateManager) (str
 	cmd.Dir = sessionState.WorktreePath
 
 	var out bytes.Buffer
-	var stderr bytes.Buffer // Capture stderr for debugging if needed
+	var stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Printf("Error running git command sequence: %v\nStderr: %s\nStdout (if any from intermediate steps before reset's >/dev/null): %s", err, stderr.String(), out.String())
-		return "0", "0"
+		return 0, 0
 	}
 
 	output := out.String()
 
-	insertions := "0"
-	deletions := "0"
+	insertions := 0
+	deletions := 0
 
-	// Regexes are fine as they were
-	insRe := regexp.MustCompile(`(\d+) insertion(?:s)?\(\+\)`) // Handle singular "insertion"
-	delRe := regexp.MustCompile(`(\d+) deletion(?:s)?\(\-\)`)  // Handle singular "deletion"
+	insRe := regexp.MustCompile(`(\d+) insertion(?:s)?\(\+\)`)
+	delRe := regexp.MustCompile(`(\d+) deletion(?:s)?\(\-\)`)
 
 	if m := insRe.FindStringSubmatch(output); len(m) > 1 {
-		insertions = m[1]
+		fmt.Sscanf(m[1], "%d", &insertions)
 	}
 	if m := delRe.FindStringSubmatch(output); len(m) > 1 {
-		deletions = m[1]
+		fmt.Sscanf(m[1], "%d", &deletions)
 	}
 
 	return insertions, deletions
@@ -124,18 +93,30 @@ func getPaneContent(sessionName string) (string, error) {
 func getAgentStatus(sessionName string) string {
 	content, err := getPaneContent(sessionName)
 	if err != nil {
-		return "Unknown"
+		return "unknown"
 	}
 
 	if strings.Contains(content, "esc to interrupt") {
-		return "Running"
+		return "running"
 	}
-	return "Ready"
+	return "ready"
+}
+
+func formatTime(t time.Time) string {
+	now := time.Now()
+	diff := now.Sub(t)
+
+	if diff < time.Hour {
+		return fmt.Sprintf("%2dm", int(diff.Minutes()))
+	} else if diff < 24*time.Hour {
+		return fmt.Sprintf("%2dh", int(diff.Hours()))
+	} else if diff < 7*24*time.Hour {
+		return fmt.Sprintf("%2dd", int(diff.Hours()/24))
+	}
+	return t.Format("Jan 02")
 }
 
 func executeLs(ctx context.Context, args []string) error {
-	log.Debug("Running ls command")
-
 	stateManager := state.NewStateManager()
 	if stateManager == nil {
 		return fmt.Errorf("failed to create state manager")
@@ -147,7 +128,7 @@ func executeLs(ctx context.Context, args []string) error {
 	}
 
 	if len(activeSessions) == 0 {
-		fmt.Println(lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("No active sessions found"))
+		fmt.Println("No active sessions found")
 		return nil
 	}
 
@@ -176,71 +157,45 @@ func executeLs(ctx context.Context, args []string) error {
 		return sessions[i].state.UpdatedAt.After(sessions[j].state.UpdatedAt)
 	})
 
-	// Print header
-	fmt.Printf("%-30s %-15s %-20s %-10s %-30s %s\n",
-		"AGENT",
-		"BRANCH FROM",
-		"BRANCH NAME",
-		"STATUS",
-		"PROMPT",
-		"CHANGES",
-	)
-	fmt.Println(strings.Repeat("─", 120))
+	// Long format with tabwriter for alignment
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
-	// Print the active sessions in a single line each
+	// Print header
+	fmt.Fprintf(w, "AGENT\tSTATUS\tCHANGES\tPROMPT\n")
+
+	// Print sessions
 	for _, session := range sessions {
 		sessionName := session.name
 		state := session.state
 
-		// Truncate prompt if too long
-		prompt := state.Prompt
-		if len(prompt) > 27 {
-			prompt = prompt[:24] + "..."
+		// Extract agent name from session name
+		parts := strings.Split(sessionName, "-")
+		agentName := sessionName
+		if len(parts) >= 4 && parts[0] == "agent" {
+			agentName = strings.Join(parts[3:], "-")
 		}
 
-		// Format status with styling
-		var statusDisplay string
 		status := getAgentStatus(sessionName)
-		switch status {
-		case "Running":
-			statusDisplay = statusRunningStyle.Render("Running")
-		case "Ready":
-			statusDisplay = statusReadyStyle.Render("Ready")
-		default:
-			statusDisplay = statusUnknownStyle.Render("Unknown")
-		}
-
-		// Get git diff totals
 		insertions, deletions := getGitDiffTotals(sessionName, stateManager)
-		var diffStats string
-		if insertions == "0" && deletions == "0" {
-			diffStats = lipgloss.NewStyle().Foreground(lipgloss.Color("#6B7280")).Render("no changes")
+
+		// Format diff stats with colors
+		var changes string
+		if insertions == 0 && deletions == 0 {
+			changes = "\033[32m+0\033[0m/\033[31m-0\033[0m"
 		} else {
-			parts := []string{}
-			if insertions != "0" {
-				parts = append(parts, addedStyle.Render("+"+insertions))
-			}
-			if deletions != "0" {
-				parts = append(parts, removedStyle.Render("-"+deletions))
-			}
-			diffStats = strings.Join(parts, " ")
+			// ANSI color codes: green for additions, red for deletions
+			changes = fmt.Sprintf("\033[32m+%d\033[0m/\033[31m-%d\033[0m", insertions, deletions)
 		}
 
-		// Truncate branch name if too long
-		branchName := state.BranchName
-		if len(branchName) > 18 {
-			branchName = branchName[:15] + "..."
-		}
-
-		fmt.Printf("%-30s %-15s %-20s %-10s %-30s %s\n",
-			agentStyle.Render(sessionName),
-			branchStyle.Render(state.BranchFrom),
-			branchStyle.Render(branchName),
-			statusDisplay,
-			promptStyle.Render(prompt),
-			diffStats,
+		// Format: agent status changes prompt
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+			agentName,
+			status,
+			changes,
+			state.Prompt,
 		)
 	}
+	w.Flush()
 
 	return nil
 }

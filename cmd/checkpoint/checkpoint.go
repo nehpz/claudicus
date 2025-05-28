@@ -51,9 +51,15 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	// Find the session with the matching agent name
 	var sessionToCheckpoint string
 	for _, session := range activeSessions {
-		if strings.HasSuffix(session, "-"+agentName) {
-			sessionToCheckpoint = session
-			break
+		// Extract agent name from session name (format: agent-projectDir-gitHash-agentName)
+		parts := strings.Split(session, "-")
+		if len(parts) >= 4 && parts[0] == "agent" {
+			// Join all parts after the first 3 (in case agent name contains hyphens)
+			sessionAgentName := strings.Join(parts[3:], "-")
+			if sessionAgentName == agentName {
+				sessionToCheckpoint = session
+				break
+			}
 		}
 	}
 
@@ -76,6 +82,9 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 		return fmt.Errorf("invalid state for session: %s", sessionToCheckpoint)
 	}
 
+	// Get the actual branch name from the state
+	agentBranchName := sessionState.BranchName
+
 	// Get current directory (should be the main worktree)
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -92,10 +101,10 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	currentBranch := strings.TrimSpace(string(currentBranchOutput))
 
 	// Check if agent branch exists
-	checkBranchCmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+agentName)
+	checkBranchCmd := exec.CommandContext(ctx, "git", "show-ref", "--verify", "--quiet", "refs/heads/"+agentBranchName)
 	checkBranchCmd.Dir = currentDir
 	if err := checkBranchCmd.Run(); err != nil {
-		return fmt.Errorf("agent branch does not exist: %s", agentName)
+		return fmt.Errorf("agent branch does not exist: %s", agentBranchName)
 	}
 
 	// Stage all changes and commit on the agent branch
@@ -114,7 +123,7 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	}
 
 	// Get the base commit where the agent branch diverged
-	mergeBaseCmd := exec.CommandContext(ctx, "git", "merge-base", currentBranch, agentName)
+	mergeBaseCmd := exec.CommandContext(ctx, "git", "merge-base", currentBranch, agentBranchName)
 	mergeBaseCmd.Dir = currentDir
 	mergeBaseOutput, err := mergeBaseCmd.Output()
 	if err != nil {
@@ -123,7 +132,7 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	mergeBase := strings.TrimSpace(string(mergeBaseOutput))
 
 	// Check if there are any changes to rebase
-	diffCmd := exec.CommandContext(ctx, "git", "rev-list", "--count", mergeBase+".."+agentName)
+	diffCmd := exec.CommandContext(ctx, "git", "rev-list", "--count", mergeBase+".."+agentBranchName)
 	diffCmd.Dir = currentDir
 	diffOutput, err := diffCmd.Output()
 	if err != nil {
@@ -134,7 +143,7 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 	fmt.Printf("Checkpointing %s commits from agent: %s\n", changeCount, agentName)
 
 	// Rebase the agent branch onto the current branch
-	rebaseCmd := exec.CommandContext(ctx, "git", "rebase", agentName)
+	rebaseCmd := exec.CommandContext(ctx, "git", "rebase", agentBranchName)
 	rebaseCmd.Dir = currentDir
 	rebaseCmd.Stdout = os.Stdout
 	rebaseCmd.Stderr = os.Stderr
