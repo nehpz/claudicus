@@ -24,9 +24,10 @@ var (
 	fs          = flag.NewFlagSet("uzi ls", flag.ExitOnError)
 	configPath  = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
 	allSessions = fs.Bool("a", false, "show all sessions including inactive")
+	watchMode   = fs.Bool("w", false, "watch mode - refresh output every second")
 	CmdLs       = &ffcli.Command{
 		Name:       "ls",
-		ShortUsage: "uzi ls [-a]",
+		ShortUsage: "uzi ls [-a] [-w]",
 		ShortHelp:  "List active agent sessions",
 		FlagSet:    fs,
 		Exec:       executeLs,
@@ -96,10 +97,21 @@ func getAgentStatus(sessionName string) string {
 		return "unknown"
 	}
 
-	if strings.Contains(content, "esc to interrupt") {
+	if strings.Contains(content, "esc to interrupt") || strings.Contains(content, "Thinking") {
 		return "running"
 	}
 	return "ready"
+}
+
+func formatStatus(status string) string {
+	switch status {
+	case "ready":
+		return "\033[32mready\033[0m" // Green
+	case "running":
+		return "\033[33mrunning\033[0m" // Orange/Yellow
+	default:
+		return status
+	}
 }
 
 func formatTime(t time.Time) string {
@@ -116,22 +128,7 @@ func formatTime(t time.Time) string {
 	return t.Format("Jan 02")
 }
 
-func executeLs(ctx context.Context, args []string) error {
-	stateManager := state.NewStateManager()
-	if stateManager == nil {
-		return fmt.Errorf("failed to create state manager")
-	}
-
-	activeSessions, err := stateManager.GetActiveSessionsForRepo()
-	if err != nil {
-		return fmt.Errorf("error getting active sessions: %w", err)
-	}
-
-	if len(activeSessions) == 0 {
-		fmt.Println("No active sessions found")
-		return nil
-	}
-
+func printSessions(stateManager *state.StateManager, activeSessions []string) error {
 	// Load all states to sort by UpdatedAt
 	states := make(map[string]state.AgentState)
 	if data, err := os.ReadFile(stateManager.GetStatePath()); err == nil {
@@ -190,7 +187,7 @@ func executeLs(ctx context.Context, args []string) error {
 		// Format: agent status changes prompt
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
 			agentName,
-			status,
+			formatStatus(status),
 			changes,
 			state.Prompt,
 		)
@@ -198,4 +195,72 @@ func executeLs(ctx context.Context, args []string) error {
 	w.Flush()
 
 	return nil
+}
+
+func clearScreen() {
+	fmt.Print("\033[H\033[2J")
+}
+
+func executeLs(ctx context.Context, args []string) error {
+	stateManager := state.NewStateManager()
+	if stateManager == nil {
+		return fmt.Errorf("failed to create state manager")
+	}
+
+	if *watchMode {
+		// Watch mode - refresh every second
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
+		// Initial display
+		clearScreen()
+		activeSessions, err := stateManager.GetActiveSessionsForRepo()
+		if err != nil {
+			return fmt.Errorf("error getting active sessions: %w", err)
+		}
+
+		if len(activeSessions) == 0 {
+			fmt.Println("No active sessions found")
+		} else {
+			if err := printSessions(stateManager, activeSessions); err != nil {
+				return err
+			}
+		}
+
+		// Watch loop
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ticker.C:
+				clearScreen()
+				activeSessions, err := stateManager.GetActiveSessionsForRepo()
+				if err != nil {
+					fmt.Printf("Error getting active sessions: %v\n", err)
+					continue
+				}
+
+				if len(activeSessions) == 0 {
+					fmt.Println("No active sessions found")
+				} else {
+					if err := printSessions(stateManager, activeSessions); err != nil {
+						fmt.Printf("Error printing sessions: %v\n", err)
+					}
+				}
+			}
+		}
+	} else {
+		// Single run mode
+		activeSessions, err := stateManager.GetActiveSessionsForRepo()
+		if err != nil {
+			return fmt.Errorf("error getting active sessions: %w", err)
+		}
+
+		if len(activeSessions) == 0 {
+			fmt.Println("No active sessions found")
+			return nil
+		}
+
+		return printSessions(stateManager, activeSessions)
+	}
 }

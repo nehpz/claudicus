@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -24,7 +23,6 @@ type AgentWatcher struct {
 	stateManager    *state.StateManager
 	watchedSessions map[string]*SessionMonitor
 	quit            chan bool
-	mu              sync.RWMutex
 }
 
 type SessionMonitor struct {
@@ -33,7 +31,6 @@ type SessionMonitor struct {
 	lastUpdated    time.Time
 	updateCount    int
 	noUpdateCount  int
-	stopChan       chan bool
 }
 
 func NewAgentWatcher() *AgentWatcher {
@@ -67,17 +64,6 @@ func (aw *AgentWatcher) tapEnter(sessionName string) error {
 	return aw.sendKeys(sessionName, "Enter")
 }
 
-func (aw *AgentWatcher) updateSessionStatus(sessionName, status string) error {
-	// Get current state to preserve other fields
-	currentState, err := aw.stateManager.GetWorktreeInfo(sessionName)
-	if err != nil {
-		return fmt.Errorf("failed to get current state: %w", err)
-	}
-
-	// Update the state, preserving other fields
-	return aw.stateManager.SaveStateWithPort(currentState.Prompt, currentState.BranchName, sessionName, currentState.WorktreePath, currentState.Port)
-}
-
 func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 	content, err := aw.capturePaneContent(sessionName)
 	if err != nil {
@@ -96,23 +82,28 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 	if strings.Contains(content, "Press Enter to continue") ||
 		strings.Contains(content, "Continue? (Y/n)") ||
 		strings.Contains(content, "Do you want to proceed?") ||
+		(strings.Contains(content, "Allow command") && !strings.Contains(content, "Thinking")) ||
 		strings.Contains(content, "Do you want to") ||
 		strings.Contains(content, "Proceed? (y/N)") {
 		hasPrompt = true
 	}
 
-	aw.mu.RLock()
 	monitor, exists := aw.watchedSessions[sessionName]
-	aw.mu.RUnlock()
-
 	if !exists {
-		// Session monitor should have been created by refreshActiveSessions
+		// First time monitoring this session
+		aw.watchedSessions[sessionName] = &SessionMonitor{
+			sessionName:    sessionName,
+			prevOutputHash: aw.hashContent([]byte(content)),
+			lastUpdated:    time.Now(),
+			updateCount:    0,
+			noUpdateCount:  0,
+		}
 		return false, hasPrompt, nil
 	}
 
 	// Compare current content hash with previous
 	currentHash := aw.hashContent([]byte(content))
-	if monitor.prevOutputHash == nil || !bytes.Equal(currentHash, monitor.prevOutputHash) {
+	if !bytes.Equal(currentHash, monitor.prevOutputHash) {
 		monitor.prevOutputHash = currentHash
 		monitor.lastUpdated = time.Now()
 		monitor.updateCount++
@@ -124,65 +115,25 @@ func (aw *AgentWatcher) hasUpdated(sessionName string) (bool, bool, error) {
 	return false, hasPrompt, nil
 }
 
-func (aw *AgentWatcher) checkSessionExists(sessionName string) bool {
-	cmd := exec.Command("tmux", "has-session", "-t", sessionName+":agent")
-	return cmd.Run() == nil
-}
-
-func (aw *AgentWatcher) watchSession(sessionName string, stopChan chan bool) {
+func (aw *AgentWatcher) watchSession(sessionName string) {
 	log.Info("Starting to watch session", "session", sessionName)
-
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
 
 	for {
 		select {
 		case <-aw.quit:
 			return
-		case <-stopChan:
-			log.Info("Stopping watch for session", "session", sessionName)
-			return
-		case <-ticker.C:
-			// First check if session still exists in state
-			activeSessions, err := aw.stateManager.GetActiveSessionsForRepo()
-			if err != nil {
-				log.Error("Failed to get active sessions", "error", err)
-				continue
-			}
-
-			sessionActive := false
-			for _, activeSession := range activeSessions {
-				if activeSession == sessionName {
-					sessionActive = true
-					break
-				}
-			}
-
-			if !sessionActive {
-				log.Info("Session no longer in state, stopping watch", "session", sessionName)
-				return
-			}
-
-			// Check if tmux session exists
-			if !aw.checkSessionExists(sessionName) {
-				log.Info("Tmux session no longer exists, stopping watch", "session", sessionName)
-				return
-			}
-
+		default:
 			updated, hasPrompt, err := aw.hasUpdated(sessionName)
 			if err != nil {
-				// Check if it's a session not found error
-				if strings.Contains(err.Error(), "session not found") ||
-					strings.Contains(err.Error(), "can't find session") {
-					log.Info("Session not found, stopping watch", "session", sessionName)
-					return
-				}
 				log.Error("Error checking session update", "session", sessionName, "error", err)
+				time.Sleep(2 * time.Second)
 				continue
 			}
 
 			if updated {
 				log.Debug("Session updated", "session", sessionName)
+			} else {
+				// Check if session has no prompt and hasn't updated in 3 cycles
 			}
 
 			if hasPrompt {
@@ -193,6 +144,8 @@ func (aw *AgentWatcher) watchSession(sessionName string, stopChan chan bool) {
 					log.Info("Successfully sent Enter", "session", sessionName)
 				}
 			}
+
+			time.Sleep(500 * time.Millisecond) // Check every 500ms
 		}
 	}
 }
@@ -203,11 +156,8 @@ func (aw *AgentWatcher) refreshActiveSessions() error {
 		return fmt.Errorf("failed to get active sessions: %w", err)
 	}
 
-	aw.mu.Lock()
-	defer aw.mu.Unlock()
-
 	// Stop watching sessions that are no longer active
-	for sessionName, monitor := range aw.watchedSessions {
+	for sessionName := range aw.watchedSessions {
 		found := false
 		for _, activeSession := range activeSessions {
 			if activeSession == sessionName {
@@ -217,8 +167,6 @@ func (aw *AgentWatcher) refreshActiveSessions() error {
 		}
 		if !found {
 			log.Info("Session no longer active, stopping watch", "session", sessionName)
-			// Signal the goroutine to stop
-			close(monitor.stopChan)
 			delete(aw.watchedSessions, sessionName)
 		}
 	}
@@ -226,17 +174,7 @@ func (aw *AgentWatcher) refreshActiveSessions() error {
 	// Start watching new active sessions
 	for _, sessionName := range activeSessions {
 		if _, exists := aw.watchedSessions[sessionName]; !exists {
-			// Create a new monitor with stop channel
-			monitor := &SessionMonitor{
-				sessionName:    sessionName,
-				prevOutputHash: nil,
-				lastUpdated:    time.Now(),
-				updateCount:    0,
-				noUpdateCount:  0,
-				stopChan:       make(chan bool),
-			}
-			aw.watchedSessions[sessionName] = monitor
-			go aw.watchSession(sessionName, monitor.stopChan)
+			go aw.watchSession(sessionName)
 		}
 	}
 
@@ -250,8 +188,8 @@ func (aw *AgentWatcher) Start() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// Refresh active sessions more frequently to catch killed sessions faster
-	refreshTicker := time.NewTicker(1 * time.Second)
+	// Refresh active sessions periodically
+	refreshTicker := time.NewTicker(5 * time.Second)
 	defer refreshTicker.Stop()
 
 	go func() {
@@ -275,14 +213,6 @@ func (aw *AgentWatcher) Start() {
 	// Wait for signal
 	<-sigChan
 	log.Info("Shutting down Agent Watcher")
-
-	// Stop all watchers
-	aw.mu.Lock()
-	for _, monitor := range aw.watchedSessions {
-		close(monitor.stopChan)
-	}
-	aw.mu.Unlock()
-
 	close(aw.quit)
 }
 
