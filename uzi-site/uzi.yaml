@@ -1,0 +1,2 @@
+devCommand: cd uzi-site && reload -p $PORT
+portRange: 3000-4000
