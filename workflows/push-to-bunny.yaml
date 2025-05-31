@@ -1,0 +1,56 @@
+name: Upload Site to Bunny
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref }}
+  cancel-in-progress: true
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+    paths:
+      - "uzi-site/**"
+      - "workflows/push-to-bunny.yml"
+
+jobs:
+  build_push_website:
+    name: Push Website
+    runs-on: blacksmith-16vcpu-ubuntu-2404
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+
+      - name: Upload Dir to Bunny 
+        env:
+          BUNNY_API_KEY: ${{ secrets.BUNNY_API_KEY }}
+          STORAGE_ZONE: uzi-site
+          UPLOAD_PATH: uzi-site
+        run: |
+          find "$UPLOAD_PATH" -type f -print0 | xargs -0 -I{} -P 4 sh -c '
+              file="{}"
+              # Get the relative path of the file
+              relative_path="${file#$UPLOAD_PATH/}"
+              # Construct the URL for the BunnyCDN storage
+              upload_url="https://storage.bunnycdn.com/$STORAGE_ZONE/$relative_path"
+              # Upload the file to BunnyCDN
+              echo -n "Uploading $file ... "
+              curl --request PUT --url "$upload_url" \
+                --header "AccessKey: $BUNNY_API_KEY" \
+                --header "Content-Type: application/octet-stream" \
+                --header "accept: application/json" \
+                --data-binary "@$file" \
+                -s \
+                -w " \n"
+            '
+          echo "Done!"
+      - name: Purge Cache
+        env:
+          BUNNY_NET_API_KEY: ${{ secrets.BUNNY_NET_API_KEY }}
+          ZONE_ID: ${{ secrets.ZONE_ID }}
+        run: |
+          curl --request POST \
+           --url https://api.bunny.net/pullzone/${ZONE_ID}/purgeCache \
+           --header "AccessKey: ${BUNNY_NET_API_KEY}" \
+           --header 'content-type: application/json'
+
