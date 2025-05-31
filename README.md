@@ -36,7 +36,7 @@ Uzi is a powerful command-line tool designed to manage multiple AI coding agents
 ### Build From Source
 
 ```bash
-git clone https://github.com/yourusername/uzi.git
+git clone https://github.com/devflowinc/uzi.git
 cd uzi
 make build
 ```
