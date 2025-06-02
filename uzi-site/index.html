@@ -424,8 +424,8 @@
         .then((response) => response.json())
         .then((data) => {
           const starCount = data.stargazers_count;
-          const starCountElement = document.getElementById("star-count");
-          if (starCountElement) {
+          if (starCount && starCountElement) {
+            const starCountElement = document.getElementById("star-count");
             starCountElement.textContent = `| ${starCount}`;
           }
         })
