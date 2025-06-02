@@ -13,14 +13,14 @@ import (
 	"regexp"
 	"strings"
 
-	"www.uzi.sh/cmd/broadcast"
-	"www.uzi.sh/cmd/checkpoint"
-	"www.uzi.sh/cmd/kill"
-	"www.uzi.sh/cmd/ls"
-	"www.uzi.sh/cmd/prompt"
-	"www.uzi.sh/cmd/reset"
-	"www.uzi.sh/cmd/run"
-	"www.uzi.sh/cmd/watch"
+	"github.com/devflowinc/uzi/cmd/broadcast"
+	"github.com/devflowinc/uzi/cmd/checkpoint"
+	"github.com/devflowinc/uzi/cmd/kill"
+	"github.com/devflowinc/uzi/cmd/ls"
+	"github.com/devflowinc/uzi/cmd/prompt"
+	"github.com/devflowinc/uzi/cmd/reset"
+	"github.com/devflowinc/uzi/cmd/run"
+	"github.com/devflowinc/uzi/cmd/watch"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 )

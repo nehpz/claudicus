@@ -1,4 +1,4 @@
-module www.uzi.sh
+module github.com/devflowinc/uzi
 
 go 1.24.3
 

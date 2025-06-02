@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"www.uzi.sh/pkg/state"
+	"github.com/devflowinc/uzi/pkg/state"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"

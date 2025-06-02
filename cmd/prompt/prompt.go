@@ -12,9 +12,9 @@ import (
 	"strings"
 	"time"
 
-	"www.uzi.sh/pkg/agents"
-	"www.uzi.sh/pkg/config"
-	"www.uzi.sh/pkg/state"
+	"github.com/devflowinc/uzi/pkg/agents"
+	"github.com/devflowinc/uzi/pkg/config"
+	"github.com/devflowinc/uzi/pkg/state"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"
