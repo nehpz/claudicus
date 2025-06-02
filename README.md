@@ -1,5 +1,3 @@
-# Uzi - Multi-Agent Development Tool
-
 <a href="https://www.uzi.sh">
   <img src="https://cdn.trieve.ai/uzi-opengraph.png">
 </a>
