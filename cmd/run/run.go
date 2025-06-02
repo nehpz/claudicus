@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"uzi/pkg/config"
-	"uzi/pkg/state"
+	"www.uzi.sh/pkg/config"
+	"www.uzi.sh/pkg/state"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"

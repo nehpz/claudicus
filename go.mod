@@ -1,4 +1,4 @@
-module uzi
+module www.uzi.sh
 
 go 1.24.3
 

@@ -14,8 +14,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"uzi/pkg/config"
-	"uzi/pkg/state"
+	"www.uzi.sh/pkg/config"
+	"www.uzi.sh/pkg/state"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
