@@ -4,16 +4,6 @@ AI Code agents don't always "just work". Instead of fighting with a single agent
 
 Uzi is a powerful command-line tool designed to manage multiple AI coding agents simultaneously. It creates isolated development environments using Git worktrees and tmux sessions, allowing you to run multiple AI agents in parallel on the same task
 
-## Table of Contents
-
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [Commands](#commands)
-- [Usage Examples](#usage-examples)
-- [How It Works](#how-it-works)
-
 ## Features
 
 - 🤖 Run multiple AI coding agents in parallel
@@ -28,19 +18,16 @@ Uzi is a powerful command-line tool designed to manage multiple AI coding agents
 
 - **Git**: For version control and worktree management
 - **Tmux**: For terminal session management
-- **Go**: For building from source (if not using pre-built binary)
+- **Go**: For installing
 - **Your AI tool of choice**: Such as `claude`, `codex`, etc.
 
 ## Installation
 
-### Installing from Go Modules
-
 ```bash
 go install github.com/devflowinc/uzi@latest
-uzi
 ```
 
-Ensure GOBIN is in your PATH.
+Make sure that your GOBIN is in your PATH.
 
 ```sh
 export PATH="$PATH:$HOME/go/bin"
@@ -68,9 +55,7 @@ portRange: 3000-3010
 
 **Important**: The `devCommand` should include all necessary setup steps (like `npm install`, `pip install`, etc.) as each agent runs in an isolated worktree with its own dependencies.
 
-## Usage Examples
-
-### Basic Workflow
+## Basic Workflow
 
 1. **Start agents with a task:**
    ```bash
@@ -207,64 +192,3 @@ uzi prompt --agents=random:5 "Fix all TypeScript errors"
 ```bash
 uzi run "npm test"
 ```
-
-## How It Works
-
-### Architecture
-
-1. **Git Worktrees**: Each agent gets its own Git worktree, allowing parallel development without conflicts
-2. **Tmux Sessions**: Each agent runs in a tmux session with:
-   - `agent` window: Where the AI tool runs
-   - `uzi-dev` window: Where the development server runs (if configured)
-3. **State Management**: Uzi tracks all sessions in `~/.local/share/uzi/state.json`
-4. **Port Management**: Automatically assigns available ports from the configured range
-
-### Session Naming
-
-Sessions follow the pattern: `agent-{project}-{git-hash}-{agent-name}`
-
-Example: `agent-myapp-abc123-funny-elephant`
-
-### File Structure
-
-```
-~/.local/share/uzi/
-├── state.json              # Global state tracking
-├── worktrees/             # Git worktrees for each agent
-│   └── {agent-name}/
-└── worktree/              # Per-worktree state
-    └── {session-name}/
-```
-
-## Tips and Best Practices
-
-1. **Always include setup commands**: In your `devCommand`, include installation steps (`npm install`, `pip install`, etc.)
-
-2. **Use meaningful prompts**: Be specific about what you want each agent to accomplish
-
-3. **Monitor with watch mode**: Use `uzi ls -w` to keep an eye on all agents
-
-4. **Use the auto command**: Run `uzi auto` in a separate terminal to handle prompts automatically
-
-5. **Checkpoint frequently**: Don't let agent branches diverge too far from main
-
-6. **Clean up regularly**: Use `uzi kill all` to clean up finished sessions
-
-## Troubleshooting
-
-**Agent not responding to prompts:**
-- Check if the agent window is waiting for input: `tmux attach -t session-name`
-- Use `uzi auto` to automatically handle common prompts
-
-**Port conflicts:**
-- Ensure your `portRange` in `uzi.yaml` doesn't conflict with other services
-- Uzi automatically finds available ports within the range
-
-**Worktree conflicts:**
-- If a worktree gets corrupted, use `uzi kill agent-name` to clean it up
-- For persistent issues, `uzi reset` will clear all data
-
-**Development server not starting:**
-- Check your `devCommand` includes all necessary setup steps
-- Verify the command works when run manually
-- Check the `uzi-dev` window for error messages: `tmux attach -t session-name` 
