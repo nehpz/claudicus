@@ -96,7 +96,7 @@
         background-size: cover;
         background-position: center;
         z-index: 1;
-        filter: grayscale(100%) brightness(0.5) contrast(1.1);
+        filter: grayscale(100%) brightness(0.56) contrast(1.1);
       }
 
       .grain-overlay {
@@ -407,7 +407,7 @@
                 </g>
               </g>
             </svg>
-            <p>Star <span id="star-count">| 190</span></p>
+            <p>Star <span id="star-count">| 211</span></p>
           </a>
         </div>
       </nav>
@@ -432,19 +432,19 @@
         <!-- To make the loop seamless, the content inside .scroll-content often needs to be duplicated -->
         <!-- For a very long single string, you might need to adjust the animation or duplicate the string in JS -->
         <div class="banner-item">
-          Q3 2025, LLMS ARE THE MASTERS OF DEVELOPMENT, ONLY HORSELESS CARRIAGES
-          STAND BEFORE THEM, REPOS ARE NOW BATTLEFIELDS | THIS IS A WAR DO NOT
-          THINK IT IS NOT | LITERALLY TENS OF BILLIONS ARE BEING SET ON FIRE FOR
-          YOUR ATTENTION AND FOR YOUR LOYALTY | UZI IS THE FULL-AUTO OF CODE GEN
-          | WHY ARE YOU NOT GIVING YOUR TEAM INSANELY ASSYMETRIC ADVANTAGES
+          Q3 2025, LLMS ARE THE MASTERS OF DEVELOPMENT, ISSUES STAND BEFORE
+          THEM, REPOS ARE NOW BATTLEFIELDS | THIS IS A WAR DO NOT THINK IT IS
+          NOT | LITERALLY TENS OF BILLIONS ARE BEING SET ON FIRE FOR YOUR
+          ATTENTION AND FOR YOUR LOYALTY | UZI IS THE FULL-AUTO OF CODE GEN |
+          WHY ARE YOU NOT GIVING YOUR TEAM INSANELY ASSYMETRIC ADVANTAGES
         </div>
         <!-- Duplicate the banner item for a smoother infinite scroll effect if the text isn't wide enough -->
         <div class="banner-item">
-          Q3 2025, LLMS ARE THE MASTERS OF DEVELOPMENT, ONLY HORSELESS CARRIAGES
-          STAND BEFORE THEM, REPOS ARE NOW BATTLEFIELDS | THIS IS A WAR DO NOT
-          THINK IT IS NOT | LITERALLY TENS OF BILLIONS ARE BEING SET ON FIRE FOR
-          YOUR ATTENTION AND FOR YOUR LOYALTY | UZI IS THE FULL-AUTO OF CODE GEN
-          | WHY ARE YOU NOT GIVING YOUR TEAM INSANELY ASSYMETRIC ADVANTAGES
+          Q3 2025, LLMS ARE THE MASTERS OF DEVELOPMENT, ISSUES STAND BEFORE
+          THEM, REPOS ARE NOW BATTLEFIELDS | THIS IS A WAR DO NOT THINK IT IS
+          NOT | LITERALLY TENS OF BILLIONS ARE BEING SET ON FIRE FOR YOUR
+          ATTENTION AND FOR YOUR LOYALTY | UZI IS THE FULL-AUTO OF CODE GEN |
+          WHY ARE YOU NOT GIVING YOUR TEAM INSANELY ASSYMETRIC ADVANTAGES
         </div>
       </div>
       <div class="banner-fade"></div>
@@ -456,8 +456,8 @@
         .then((response) => response.json())
         .then((data) => {
           const starCount = data.stargazers_count;
+          const starCountElement = document.getElementById("star-count");
           if (starCount && starCountElement) {
-            const starCountElement = document.getElementById("star-count");
             starCountElement.textContent = `| ${starCount}`;
           }
         })
