@@ -33,21 +33,17 @@ Uzi is a powerful command-line tool designed to manage multiple AI coding agents
 
 ## Installation
 
-### Build From Source
+### Installing from Go Modules
 
 ```bash
-git clone https://github.com/devflowinc/uzi.git
-cd uzi
-make build
+go install github.com/devflowinc/uzi@latest
+uzi
 ```
 
-This will create a `uzi` binary in the current directory.
+Ensure GOBIN is in your PATH.
 
-### Add to PATH
-
-```bash
-# Add to your shell configuration file (.bashrc, .zshrc, etc.)
-export PATH="$PATH:/path/to/uzi/directory"
+```sh
+export PATH="$PATH:$HOME/go/bin"
 ```
 
 ## Configuration
