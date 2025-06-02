@@ -1,5 +1,7 @@
 # Uzi - Multi-Agent Development Tool
 
+[![Film Grain on Uzi Site](src/assets/images/blog-posts/HowToUseMidjourney/uzi-opengraph.png)](https://uzi.sh)
+
 AI Code agents don't always "just work". Instead of fighting with a single agent to get it right.
 
 Uzi is a powerful command-line tool designed to manage multiple AI coding agents simultaneously. It creates isolated development environments using Git worktrees and tmux sessions, allowing you to run multiple AI agents in parallel on the same task
