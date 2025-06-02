@@ -4,6 +4,18 @@ AI Code agents don't always "just work". Instead of fighting with a single agent
 
 Uzi is a powerful command-line tool designed to manage multiple AI coding agents simultaneously. It creates isolated development environments using Git worktrees and tmux sessions, allowing you to run multiple AI agents in parallel on the same task
 
+## Installation
+
+```bash
+go install github.com/devflowinc/uzi@latest
+```
+
+Make sure that your GOBIN is in your PATH.
+
+```sh
+export PATH="$PATH:$HOME/go/bin"
+```
+
 ## Features
 
 - 🤖 Run multiple AI coding agents in parallel
@@ -20,18 +32,6 @@ Uzi is a powerful command-line tool designed to manage multiple AI coding agents
 - **Tmux**: For terminal session management
 - **Go**: For installing
 - **Your AI tool of choice**: Such as `claude`, `codex`, etc.
-
-## Installation
-
-```bash
-go install github.com/devflowinc/uzi@latest
-```
-
-Make sure that your GOBIN is in your PATH.
-
-```sh
-export PATH="$PATH:$HOME/go/bin"
-```
 
 ## Configuration
 
@@ -50,7 +50,6 @@ portRange: 3000-3010
   - Example for Next.js: `npm install && npm run dev -- --port $PORT`
   - Example for Vite: `npm install && npm run dev -- --port $PORT`
   - Example for Django: `pip install -r requirements.txt && python manage.py runserver 0.0.0.0:$PORT`
-  
 - **`portRange`**: The range of ports Uzi can use for development servers (format: `start-end`)
 
 **Important**: The `devCommand` should include all necessary setup steps (like `npm install`, `pip install`, etc.) as each agent runs in an isolated worktree with its own dependencies.
@@ -58,24 +57,27 @@ portRange: 3000-3010
 ## Basic Workflow
 
 1. **Start agents with a task:**
+
    ```bash
    uzi prompt --agents claude:3,codex:2 "Implement a REST API for user management with authentication"
    ```
 
 2. **Run uzi auto**
 
-    uzi auto automatically presses Enter to confirm all tool calls
+   uzi auto automatically presses Enter to confirm all tool calls
 
-    ```
-    uzi auto
-    ```
+   ```
+   uzi auto
+   ```
 
 3. **Monitor agent progress:**
+
    ```bash
    uzi ls -w  # Watch mode
    ```
 
 4. **Send additional instructions:**
+
    ```bash
    uzi broadcast "Make sure to add input validation"
    ```
@@ -96,6 +98,7 @@ uzi prompt --agents claude:2,codex:1 "Build a todo app with React"
 ```
 
 **Options:**
+
 - `--agents`: Specify agents and counts in format `agent:count[,agent:count...]`
   - Use `random` as agent name for random agent names
   - Example: `--agents claude:2,random:3`
@@ -124,6 +127,7 @@ uzi auto
 ```
 
 **Features:**
+
 - Auto-presses Enter for trust prompts
 - Handles continuation confirmations
 - Runs in the background until interrupted (Ctrl+C)
@@ -147,6 +151,7 @@ uzi run --delete "npm test"       # Run and delete the window after
 ```
 
 **Options:**
+
 - `--delete`: Remove the tmux window after running the command
 
 ### `uzi broadcast` (alias: `uzi b`)
@@ -175,20 +180,22 @@ uzi reset
 
 **Warning**: This deletes all data in `~/.local/share/uzi`
 
-
 ### Advanced Usage
 
 **Running different AI tools:**
+
 ```bash
 uzi prompt --agents=claude:2,aider:2,cursor:1 "Refactor the authentication system"
 ```
 
 **Using random agent names:**
+
 ```bash
 uzi prompt --agents=random:5 "Fix all TypeScript errors"
 ```
 
 **Running tests across all agents:**
+
 ```bash
 uzi run "npm test"
 ```
