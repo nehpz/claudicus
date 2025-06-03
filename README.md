@@ -1,6 +1,14 @@
 <a href="https://www.uzi.sh">
   <img src="https://cdn.trieve.ai/uzi-opengraph.png">
 </a>
+<p align="center">
+  <a
+    href="https://cdn.trieve.ai/uzi-whitepaper.pdf"
+    target="_blank"
+    rel="noopener noreferrer"
+    >Whitepaper
+  </a>
+</p>
 
 ## Installation
 
