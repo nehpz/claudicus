@@ -1,5 +1,5 @@
 <a href="https://www.uzi.sh">
-  <img src="https://cdn.trieve.ai/uzi-opengraph.png">
+  <img src="https://cdn.trieve.ai/uzi-opengraph-v2.png">
 </a>
 <p align="center">
   <a
