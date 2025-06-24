@@ -4,13 +4,16 @@
 package tui
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/devflowinc/uzi/pkg/state"
 )
@@ -58,25 +61,151 @@ type UziInterface interface {
 	RunCommand(command string) error
 }
 
-// UziCLI implements UziInterface by shelling out to uzi commands
-// This provides a clean abstraction layer between TUI and Uzi core
-type UziCLI struct {
-	stateManager *state.StateManager
-	tmuxDiscovery *TmuxDiscovery
+// ProxyConfig defines configuration for the UziCLI proxy
+type ProxyConfig struct {
+	Timeout     time.Duration
+	Retries     int
+	LogLevel    string
+	EnableCache bool
 }
 
-// NewUziCLI creates a new UziCLI implementation
-func NewUziCLI() *UziCLI {
-	return &UziCLI{
-		stateManager: state.NewStateManager(),
-		tmuxDiscovery: NewTmuxDiscovery(),
+// DefaultProxyConfig returns sensible defaults for the proxy
+func DefaultProxyConfig() ProxyConfig {
+	return ProxyConfig{
+		Timeout:     30 * time.Second,
+		Retries:     2,
+		LogLevel:    "info",
+		EnableCache: false,
 	}
 }
 
-// GetSessions implements UziInterface by reading state.json directly
-// TODO: In the future, this could use `uzi ls -j` when that flag is implemented
-// For now, we read state.json directly and replicate the logic from cmd/ls/ls.go
+// UziCLI implements UziInterface by providing a consistent proxy layer
+// All operations go through this proxy for unified error handling, logging, and debugging
+type UziCLI struct {
+	stateManager  *state.StateManager
+	tmuxDiscovery *TmuxDiscovery
+	config        ProxyConfig
+}
+
+// NewUziCLI creates a new UziCLI implementation with default configuration
+func NewUziCLI() *UziCLI {
+	return NewUziCLIWithConfig(DefaultProxyConfig())
+}
+
+// NewUziCLIWithConfig creates a new UziCLI implementation with custom configuration
+func NewUziCLIWithConfig(config ProxyConfig) *UziCLI {
+	return &UziCLI{
+		stateManager:  state.NewStateManager(),
+		tmuxDiscovery: NewTmuxDiscovery(),
+		config:        config,
+	}
+}
+
+// Core proxy infrastructure methods
+
+// executeCommand runs a command with consistent error handling and logging
+func (c *UziCLI) executeCommand(name string, args ...string) ([]byte, error) {
+	return c.executeCommandWithTimeout(c.config.Timeout, name, args...)
+}
+
+// executeCommandWithTimeout runs a command with a custom timeout
+func (c *UziCLI) executeCommandWithTimeout(timeout time.Duration, name string, args ...string) ([]byte, error) {
+	start := time.Now()
+	var lastErr error
+
+	for attempt := 0; attempt <= c.config.Retries; attempt++ {
+		cmd := exec.Command(name, args...)
+
+		// Set up stdout and stderr capture
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+
+		// Create a channel to handle timeout
+		done := make(chan error, 1)
+		go func() {
+			done <- cmd.Run()
+		}()
+
+		select {
+		case err := <-done:
+			duration := time.Since(start)
+			if err != nil {
+				lastErr = fmt.Errorf("command failed (attempt %d/%d): %w - stderr: %s", 
+					attempt+1, c.config.Retries+1, err, stderr.String())
+				c.logOperation(fmt.Sprintf("%s %v", name, args), duration, lastErr)
+
+				// Don't retry if it's the last attempt
+				if attempt == c.config.Retries {
+					return nil, c.wrapError(fmt.Sprintf("%s %v", name, args), lastErr)
+				}
+
+				// Brief delay before retry
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+
+			// Success
+			c.logOperation(fmt.Sprintf("%s %v", name, args), duration, nil)
+			return stdout.Bytes(), nil
+
+		case <-time.After(timeout):
+			cmd.Process.Kill()
+			lastErr = fmt.Errorf("command timed out after %v", timeout)
+			c.logOperation(fmt.Sprintf("%s %v", name, args), timeout, lastErr)
+
+			if attempt == c.config.Retries {
+				return nil, c.wrapError(fmt.Sprintf("%s %v", name, args), lastErr)
+			}
+		}
+	}
+
+	return nil, c.wrapError(fmt.Sprintf("%s %v", name, args), lastErr)
+}
+
+// wrapError provides consistent error wrapping with proxy context
+func (c *UziCLI) wrapError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("uzi_proxy: %s: %w", operation, err)
+}
+
+// logOperation logs command execution details based on configuration
+func (c *UziCLI) logOperation(operation string, duration time.Duration, err error) {
+	if c.config.LogLevel == "debug" || (c.config.LogLevel == "info" && err != nil) {
+		if err != nil {
+			log.Printf("[UziCLI] %s failed in %v: %v", operation, duration, err)
+		} else {
+			log.Printf("[UziCLI] %s completed in %v", operation, duration)
+		}
+	}
+}
+
+// GetSessions implements UziInterface using the proxy pattern
+// This shells out to `uzi ls --json` for consistent behavior
 func (c *UziCLI) GetSessions() ([]SessionInfo, error) {
+	start := time.Now()
+	defer func() { c.logOperation("GetSessions", time.Since(start), nil) }()
+
+	// Shell out to uzi ls --json (use ./uzi for testing to get current binary)
+	output, err := c.executeCommand("./uzi", "ls", "--json")
+	if err != nil {
+		return nil, c.wrapError("GetSessions", err)
+	}
+
+	// Parse JSON response
+	var sessions []SessionInfo
+	if err := json.Unmarshal(output, &sessions); err != nil {
+		return nil, c.wrapError("GetSessions", fmt.Errorf("failed to parse JSON: %w", err))
+	}
+
+	return sessions, nil
+}
+
+// GetSessionsLegacy implements the legacy behavior by reading state.json directly
+// This method is kept for fallback and testing purposes
+func (c *UziCLI) GetSessionsLegacy() ([]SessionInfo, error) {
 	if c.stateManager == nil {
 		return nil, fmt.Errorf("state manager not initialized")
 	}
@@ -171,44 +300,65 @@ func (c *UziCLI) GetSessionStatus(sessionName string) (string, error) {
 }
 
 // AttachToSession implements UziInterface by executing tmux attach
+// Note: This is one case where we don't use executeCommand since it needs direct terminal access
 func (c *UziCLI) AttachToSession(sessionName string) error {
+	start := time.Now()
+	defer func() { c.logOperation("AttachToSession", time.Since(start), nil) }()
+
 	cmd := exec.Command("tmux", "attach-session", "-t", sessionName)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		return c.wrapError("AttachToSession", err)
+	}
+	return nil
 }
 
-// KillSession implements UziInterface by shelling out to uzi kill
+// KillSession implements UziInterface using the proxy pattern
 func (c *UziCLI) KillSession(sessionName string) error {
 	// Extract agent name from session name
 	agentName := extractAgentName(sessionName)
-	cmd := exec.Command("uzi", "kill", agentName)
-	return cmd.Run()
+	_, err := c.executeCommand("./uzi", "kill", agentName)
+	if err != nil {
+		return c.wrapError("KillSession", err)
+	}
+	return nil
 }
 
 // RefreshSessions implements UziInterface (no-op as data is read fresh each time)
 func (c *UziCLI) RefreshSessions() error {
 	// No caching in this implementation, so nothing to refresh
+	c.logOperation("RefreshSessions", 0, nil)
 	return nil
 }
 
-// RunPrompt implements UziInterface by shelling out to uzi prompt
+// RunPrompt implements UziInterface using the proxy pattern
 func (c *UziCLI) RunPrompt(agents string, prompt string) error {
-	cmd := exec.Command("uzi", "prompt", "--agents", agents, prompt)
-	return cmd.Run()
+	_, err := c.executeCommand("./uzi", "prompt", "--agents", agents, prompt)
+	if err != nil {
+		return c.wrapError("RunPrompt", err)
+	}
+	return nil
 }
 
-// RunBroadcast implements UziInterface by shelling out to uzi broadcast
+// RunBroadcast implements UziInterface using the proxy pattern
 func (c *UziCLI) RunBroadcast(message string) error {
-	cmd := exec.Command("uzi", "broadcast", message)
-	return cmd.Run()
+	_, err := c.executeCommand("./uzi", "broadcast", message)
+	if err != nil {
+		return c.wrapError("RunBroadcast", err)
+	}
+	return nil
 }
 
-// RunCommand implements UziInterface by shelling out to uzi run
+// RunCommand implements UziInterface using the proxy pattern
 func (c *UziCLI) RunCommand(command string) error {
-	cmd := exec.Command("uzi", "run", command)
-	return cmd.Run()
+	_, err := c.executeCommand("./uzi", "run", command)
+	if err != nil {
+		return c.wrapError("RunCommand", err)
+	}
+	return nil
 }
 
 // Helper functions (these replicate logic from cmd/ls/ls.go for now)

@@ -25,9 +25,10 @@ var (
 	configPath  = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
 	allSessions = fs.Bool("a", false, "show all sessions including inactive")
 	watchMode   = fs.Bool("w", false, "watch mode - refresh output every second")
+	jsonOutput  = fs.Bool("json", false, "output in JSON format")
 	CmdLs       = &ffcli.Command{
 		Name:       "ls",
-		ShortUsage: "uzi ls [-a] [-w]",
+		ShortUsage: "uzi ls [-a] [-w] [--json]",
 		ShortHelp:  "List active agent sessions",
 		FlagSet:    fs,
 		Exec:       executeLs,
@@ -126,6 +127,93 @@ func formatTime(t time.Time) string {
 		return fmt.Sprintf("%2dd", int(diff.Hours()/24))
 	}
 	return t.Format("Jan 02")
+}
+
+// SessionInfo represents session data for JSON output
+// This matches the struct used in pkg/tui/uzi_interface.go
+type SessionInfo struct {
+	Name         string `json:"name"`
+	AgentName    string `json:"agent_name"`
+	Model        string `json:"model"`
+	Status       string `json:"status"`
+	Prompt       string `json:"prompt"`
+	Insertions   int    `json:"insertions"`
+	Deletions    int    `json:"deletions"`
+	WorktreePath string `json:"worktree_path"`
+	Port         int    `json:"port,omitempty"`
+	UpdatedAt    string `json:"updated_at"`
+}
+
+func getSessionsAsJSON(stateManager *state.StateManager, activeSessions []string) ([]SessionInfo, error) {
+	// Load all states
+	states := make(map[string]state.AgentState)
+	if data, err := os.ReadFile(stateManager.GetStatePath()); err == nil {
+		if err := json.Unmarshal(data, &states); err != nil {
+			return nil, fmt.Errorf("error parsing state file: %w", err)
+		}
+	}
+
+	var sessions []SessionInfo
+	for _, sessionName := range activeSessions {
+		state, ok := states[sessionName]
+		if !ok {
+			continue
+		}
+
+		// Extract agent name from session name
+		parts := strings.Split(sessionName, "-")
+		agentName := sessionName
+		if len(parts) >= 4 && parts[0] == "agent" {
+			agentName = strings.Join(parts[3:], "-")
+		}
+
+		status := getAgentStatus(sessionName)
+		insertions, deletions := getGitDiffTotals(sessionName, stateManager)
+
+		// Get model name, default to "unknown" if empty
+		model := state.Model
+		if model == "" {
+			model = "unknown"
+		}
+
+		sessionInfo := SessionInfo{
+			Name:         sessionName,
+			AgentName:    agentName,
+			Model:        model,
+			Status:       status,
+			Prompt:       state.Prompt,
+			Insertions:   insertions,
+			Deletions:    deletions,
+			WorktreePath: state.WorktreePath,
+			Port:         state.Port,
+			UpdatedAt:    state.UpdatedAt.Format(time.RFC3339),
+		}
+		sessions = append(sessions, sessionInfo)
+	}
+
+	// Sort by UpdatedAt (most recent first)
+	sort.Slice(sessions, func(i, j int) bool {
+		t1, err1 := time.Parse(time.RFC3339, sessions[i].UpdatedAt)
+		t2, err2 := time.Parse(time.RFC3339, sessions[j].UpdatedAt)
+		if err1 != nil || err2 != nil {
+			return false
+		}
+		return t1.After(t2)
+	})
+
+	return sessions, nil
+}
+
+func printSessionsJSON(stateManager *state.StateManager, activeSessions []string) error {
+	sessions, err := getSessionsAsJSON(stateManager, activeSessions)
+	if err != nil {
+		return err
+	}
+
+	// Output JSON
+	encoder := json.NewEncoder(os.Stdout)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(sessions)
 }
 
 func printSessions(stateManager *state.StateManager, activeSessions []string) error {
@@ -269,10 +357,19 @@ func executeLs(ctx context.Context, args []string) error {
 		}
 
 		if len(activeSessions) == 0 {
-			fmt.Println("No active sessions found")
+			if *jsonOutput {
+				// Return empty JSON array
+				fmt.Println("[]")
+			} else {
+				fmt.Println("No active sessions found")
+			}
 			return nil
 		}
 
-		return printSessions(stateManager, activeSessions)
+		if *jsonOutput {
+			return printSessionsJSON(stateManager, activeSessions)
+		} else {
+			return printSessions(stateManager, activeSessions)
+		}
 	}
 }
