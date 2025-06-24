@@ -1,4 +1,4 @@
-module github.com/devflowinc/uzi
+module github.com/nehpz/claudicus
 
 go 1.24.3
 

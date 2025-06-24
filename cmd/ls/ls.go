@@ -14,8 +14,8 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/devflowinc/uzi/pkg/config"
-	"github.com/devflowinc/uzi/pkg/state"
+	"github.com/nehpz/claudicus/pkg/config"
+	"github.com/nehpz/claudicus/pkg/state"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 )

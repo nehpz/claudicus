@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devflowinc/uzi/pkg/state"
+	"github.com/nehpz/claudicus/pkg/state"
 )
 
 func main() {

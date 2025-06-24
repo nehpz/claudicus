@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/devflowinc/uzi/pkg/config"
-	"github.com/devflowinc/uzi/pkg/tui"
+	"github.com/nehpz/claudicus/pkg/config"
+	"github.com/nehpz/claudicus/pkg/tui"
 	"golang.org/x/term"
 )
 

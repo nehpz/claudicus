@@ -10,8 +10,8 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/devflowinc/uzi/pkg/config"
-	pkgTui "github.com/devflowinc/uzi/pkg/tui"
+	"github.com/nehpz/claudicus/pkg/config"
+	"github.com/nehpz/claudicus/pkg/tui"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"golang.org/x/term"
 )
@@ -61,10 +61,10 @@ func Run() error {
 	_ = configPath
 
 	// Create a UziCLI instance
-	uziCLI := pkgTui.NewUziCLI()
+	uziCLI := tui.NewUziCLI()
 
 	// Create the TUI application
-	app := pkgTui.NewApp(uziCLI)
+	app := tui.NewApp(uziCLI)
 	
 	// Create the Bubble Tea program with more conservative options
 	program := tea.NewProgram(

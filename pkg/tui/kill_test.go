@@ -9,7 +9,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/devflowinc/uzi/pkg/state"
+	"github.com/nehpz/claudicus/pkg/tui"
 )
 
 // MockUziInterface for testing kill functionality

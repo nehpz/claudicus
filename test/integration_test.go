@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/devflowinc/uzi/pkg/tui"
+	"github.com/nehpz/claudicus/pkg/tui"
 )
 
 // TestUziCommandIntegration tests the TUI's integration with core uzi commands

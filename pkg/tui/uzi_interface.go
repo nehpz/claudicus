@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/devflowinc/uzi/pkg/state"
+	"github.com/nehpz/claudicus/pkg/state"
 )
 
 // SessionInfo contains displayable information about a session
