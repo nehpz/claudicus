@@ -11,8 +11,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/devflowinc/uzi/pkg/config"
-	"github.com/devflowinc/uzi/pkg/tui"
+	pkgTui "github.com/devflowinc/uzi/pkg/tui"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"golang.org/x/term"
 )
 
 var (
@@ -36,23 +37,40 @@ Navigation:
 - Press 'q' to quit
 - Press '?' for help`,
 		FlagSet: fs,
-		Exec:    executeTui,
+		Exec: func(ctx context.Context, args []string) error {
+			return Run()
+		},
 	}
 )
 
-func executeTui(ctx context.Context, args []string) error {
+// isTerminal checks if we're running in a terminal environment
+func isTerminal() bool {
+	// TUI requires both stdin and stdout to be terminals
+	// stdin for input, stdout for display
+	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
+// Run launches the TUI interface
+func Run() error {
+	// Check if we're in a terminal environment
+	if !isTerminal() {
+		return fmt.Errorf("TUI requires a terminal environment")
+	}
+	
 	// TODO: Load configuration
 	_ = configPath
-	_ = args
+
+	// Create a UziCLI instance
+	uziCLI := pkgTui.NewUziCLI()
 
 	// Create the TUI application
-	app := tui.NewApp()
+	app := pkgTui.NewApp(uziCLI)
 	
-	// Create the Bubble Tea program
+	// Create the Bubble Tea program with more conservative options
 	program := tea.NewProgram(
 		app,
-		tea.WithAltScreen(),       // Use alternate screen buffer
-		tea.WithMouseCellMotion(), // Enable mouse support
+		tea.WithAltScreen(), // Use alternate screen buffer
+		// Remove mouse support for now as it can cause input issues
 	)
 
 	// Run the program
@@ -65,8 +83,7 @@ func executeTui(ctx context.Context, args []string) error {
 
 // main function for standalone execution (if needed for testing)
 func main() {
-	ctx := context.Background()
-	if err := executeTui(ctx, os.Args[1:]); err != nil {
+	if err := Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "uzi tui: error: %v\n", err)
 		os.Exit(1)
 	}

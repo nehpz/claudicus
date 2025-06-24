@@ -2,6 +2,7 @@ package prompt
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -85,6 +86,40 @@ func isPortAvailable(port int) bool {
 	return true
 }
 
+// getExistingSessionPorts reads the state file and returns all currently assigned ports
+func getExistingSessionPorts(stateManager *state.StateManager) ([]int, error) {
+	if stateManager == nil {
+		return []int{}, nil
+	}
+	
+	// Read the state file
+	stateFile := stateManager.GetStatePath()
+	data, err := os.ReadFile(stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No state file exists yet, return empty list
+			return []int{}, nil
+		}
+		return nil, fmt.Errorf("failed to read state file: %w", err)
+	}
+	
+	// Parse the state file
+	states := make(map[string]state.AgentState)
+	if err := json.Unmarshal(data, &states); err != nil {
+		return nil, fmt.Errorf("failed to parse state file: %w", err)
+	}
+	
+	// Extract all assigned ports
+	var existingPorts []int
+	for _, agentState := range states {
+		if agentState.Port > 0 {
+			existingPorts = append(existingPorts, agentState.Port)
+		}
+	}
+	
+	return existingPorts, nil
+}
+
 // findAvailablePort finds the first available port in the given range, excluding already assigned ports
 func findAvailablePort(startPort, endPort int, assignedPorts []int) (int, error) {
 	for port := startPort; port <= endPort; port++ {
@@ -113,24 +148,31 @@ func executePrompt(ctx context.Context, args []string) error {
 		return fmt.Errorf("prompt argument is required")
 	}
 
-	// Load config
+	// Load config - uzi.yaml is required for standardized dev environment setup
 	cfg, err := config.LoadConfig(*configPath)
 	if err != nil {
-		log.Warn("Error loading config, using default values", "error", err)
-		cfg = &config.Config{} // Use default or empty config
+		return fmt.Errorf("uzi.yaml configuration file is required but could not be loaded: %w\n\nThe uzi.yaml file is critical for:\n1. Standardizing the development environment setup\n2. Providing an available range of ports for the application\n\nPlease create a uzi.yaml file with:\n  devCommand: your-dev-command --port $PORT\n  portRange: 3000-3010", err)
 	}
 	if cfg.DevCommand == nil || *cfg.DevCommand == "" {
-		log.Info("Dev command not set in config, skipping dev server startup.")
+		return fmt.Errorf("devCommand is required in uzi.yaml for standardized development environment setup")
 	}
 	if cfg.PortRange == nil || *cfg.PortRange == "" {
-		log.Info("Port range not set in config, skipping dev server startup.")
+		return fmt.Errorf("portRange is required in uzi.yaml to define available ports for agent sessions")
 	}
 
 	promptText := strings.Join(args, " ")
 	log.Debug("Running prompt command", "prompt", promptText)
 
-	// Track assigned ports to prevent collisions between iterations
-	var assignedPorts []int
+	// Load existing session ports to prevent collisions with existing agents
+	stateManager := state.NewStateManager()
+	existingPorts, err := getExistingSessionPorts(stateManager)
+	if err != nil {
+		log.Warn("Failed to load existing session ports, proceeding without collision check", "error", err)
+		existingPorts = []int{}
+	}
+	
+	// Track assigned ports to prevent collisions between iterations and with existing sessions
+	assignedPorts := existingPorts
 
 	// Parse agents
 	agentConfigs, err := parseAgents(*agentsFlag)
