@@ -20,11 +20,11 @@ type KeyMap struct {
 	Enter  key.Binding
 	Escape key.Binding
 	
-	// Application keys
-	Quit   key.Binding
-	Help   key.Binding
+	// Application actions
+	Help    key.Binding
+	Quit    key.Binding
 	Refresh key.Binding
-	
+	Kill    key.Binding
 	// List specific keys
 	Filter key.Binding
 	Clear  key.Binding
@@ -35,8 +35,8 @@ func DefaultKeyMap() KeyMap {
 	return KeyMap{
 		// Navigation
 		Up: key.NewBinding(
-			key.WithKeys("up", "k"),
-			key.WithHelp("↑/k", "move up"),
+			key.WithKeys("up"),
+			key.WithHelp("↑", "move up"),
 		),
 		Down: key.NewBinding(
 			key.WithKeys("down", "j"),
@@ -74,6 +74,10 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("r"),
 			key.WithHelp("r", "refresh"),
 		),
+		Kill: key.NewBinding(
+			key.WithKeys("k"),
+			key.WithHelp("k", "kill agent"),
+		),
 		
 		// List specific
 		Filter: key.NewBinding(
@@ -96,7 +100,7 @@ func (k KeyMap) ShortHelp() []key.Binding {
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Left, k.Right}, // Navigation
-		{k.Enter, k.Escape, k.Refresh},  // Actions
+		{k.Enter, k.Escape, k.Refresh, k.Kill},  // Actions
 		{k.Filter, k.Clear, k.Help, k.Quit}, // Application
 	}
 }

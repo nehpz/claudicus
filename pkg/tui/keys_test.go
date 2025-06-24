@@ -19,7 +19,7 @@ func TestDefaultKeyMap(t *testing.T) {
 		binding  key.Binding
 		expected []string
 	}{
-		{"Up navigation", keyMap.Up, []string{"up", "k"}},
+		{"Up navigation", keyMap.Up, []string{"up"}},
 		{"Down navigation", keyMap.Down, []string{"down", "j"}},
 		{"Left navigation", keyMap.Left, []string{"left", "h"}},
 		{"Right navigation", keyMap.Right, []string{"right", "l"}},
@@ -30,6 +30,7 @@ func TestDefaultKeyMap(t *testing.T) {
 		{"Refresh", keyMap.Refresh, []string{"r"}},
 		{"Filter", keyMap.Filter, []string{"/"}},
 		{"Clear", keyMap.Clear, []string{"c"}},
+		{"Kill", keyMap.Kill, []string{"k"}},
 	}
 
 	for _, tc := range testCases {
@@ -168,11 +169,11 @@ func TestCursorStateHandleKeyMsg(t *testing.T) {
 		shouldHandle  bool
 	}{
 		{
-			name:          "Handle 'k' key (up)",
+			name:          "Ignore 'k' key (now kill command)",
 			keyMsg:        tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}},
 			initialIndex:  1,
-			expectedIndex: 0,
-			shouldHandle:  true,
+			expectedIndex: 1,
+			shouldHandle:  false,
 		},
 		{
 			name:          "Handle 'j' key (down)",
@@ -280,8 +281,8 @@ func TestKeyMapHelpers(t *testing.T) {
 	}
 
 	// Test second group (actions)
-	if len(fullHelp[1]) != 3 {
-		t.Errorf("Expected second group to have 3 action keys, got %d", len(fullHelp[1]))
+	if len(fullHelp[1]) != 4 {
+		t.Errorf("Expected second group to have 4 action keys, got %d", len(fullHelp[1]))
 	}
 
 	// Test third group (application)
@@ -298,7 +299,6 @@ func TestNavigationKeysOnly(t *testing.T) {
 	// Test that only navigation keys are handled
 	navigationKeys := []tea.KeyMsg{
 		{Type: tea.KeyRunes, Runes: []rune{'j'}}, // down
-		{Type: tea.KeyRunes, Runes: []rune{'k'}}, // up
 		{Type: tea.KeyUp},                        // up arrow
 		{Type: tea.KeyDown},                      // down arrow
 	}
@@ -313,6 +313,7 @@ func TestNavigationKeysOnly(t *testing.T) {
 		{Type: tea.KeyRunes, Runes: []rune{'r'}}, // refresh
 		{Type: tea.KeyRunes, Runes: []rune{'/'}}, // filter
 		{Type: tea.KeyRunes, Runes: []rune{'c'}}, // clear
+		{Type: tea.KeyRunes, Runes: []rune{'k'}}, // kill (now application key)
 		{Type: tea.KeyRunes, Runes: []rune{'x'}}, // random key
 	}
 

@@ -103,6 +103,21 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return tea.Quit // Exit TUI after attaching
 				}
 			}
+			
+		case key.Matches(msg, a.keys.Kill):
+			// Handle agent kill command
+			if selected := a.list.SelectedSession(); selected != nil {
+				// Kill the selected agent session
+				return a, func() tea.Msg {
+					err := a.uzi.KillSession(selected.Name)
+					if err != nil {
+						// Handle error - for now just continue
+						return nil
+					}
+					// Refresh sessions after kill
+					return RefreshMsg{}
+				}
+			}
 		}
 		
 		// Delegate other key events to the list
