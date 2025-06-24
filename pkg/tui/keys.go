@@ -5,6 +5,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 // KeyMap defines the key bindings for the TUI
@@ -98,4 +99,64 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 		{k.Enter, k.Escape, k.Refresh},  // Actions
 		{k.Filter, k.Clear, k.Help, k.Quit}, // Application
 	}
+}
+
+// CursorState represents the cursor position in a list
+type CursorState struct {
+	index   int // Current cursor position
+	maxSize int // Maximum size of the list
+}
+
+// NewCursorState creates a new cursor state
+func NewCursorState() *CursorState {
+	return &CursorState{
+		index:   0,
+		maxSize: 0,
+	}
+}
+
+// Index returns the current cursor index
+func (c *CursorState) Index() int {
+	return c.index
+}
+
+// SetMaxSize sets the maximum size for the cursor
+func (c *CursorState) SetMaxSize(size int) {
+	c.maxSize = size
+	if c.index >= size && size > 0 {
+		c.index = size - 1
+	}
+}
+
+// MoveUp moves the cursor up by one position
+func (c *CursorState) MoveUp() {
+	if c.index > 0 {
+		c.index--
+	}
+}
+
+// MoveDown moves the cursor down by one position
+func (c *CursorState) MoveDown() {
+	if c.maxSize > 0 && c.index < c.maxSize-1 {
+		c.index++
+	}
+}
+
+// Reset resets the cursor to the top
+func (c *CursorState) Reset() {
+	c.index = 0
+}
+
+// HandleKeyMsg processes key messages for cursor navigation
+// Returns true if the key was handled, false otherwise
+func (c *CursorState) HandleKeyMsg(msg tea.KeyMsg, keyMap KeyMap) bool {
+	switch {
+	case key.Matches(msg, keyMap.Up):
+		c.MoveUp()
+		return true
+	case key.Matches(msg, keyMap.Down):
+		c.MoveDown()
+		return true
+	}
+	return false
 }
