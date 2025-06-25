@@ -65,15 +65,34 @@ func parseAgents(agentsStr string) (map[string]AgentConfig, error) {
 			return nil, fmt.Errorf("count must be at least 1 for agent %s", agent)
 		}
 
-		// The command is the same as the agent name by default
+		// Map agent names to actual commands
+		command := getCommandForAgent(agent)
 		agentConfigs[agent] = AgentConfig{
-			Command: agent,
+			Command: command,
 			Count:   count,
 		}
 	}
 
 	return agentConfigs, nil
 }
+
+// getCommandForAgent maps agent names to their actual CLI commands
+func getCommandForAgent(agent string) string {
+	switch agent {
+	case "claude":
+		return "claude"
+	case "cursor":
+		return "cursor"
+	case "codex":
+		return "codex"
+	case "random":
+		return "claude" // Default for random agents
+	default:
+		// For unknown agents, assume the agent name is the command
+		return agent
+	}
+}
+
 
 // isPortAvailable checks if a port is available for use
 func isPortAvailable(port int) bool {

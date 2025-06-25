@@ -192,13 +192,9 @@ func getSessionsAsJSON(stateManager *state.StateManager, activeSessions []string
 	}
 
 	// Sort by UpdatedAt (most recent first)
+	// Sort by port (ascending) for consistent ordering in TUI
 	sort.Slice(sessions, func(i, j int) bool {
-		t1, err1 := time.Parse(time.RFC3339, sessions[i].UpdatedAt)
-		t2, err2 := time.Parse(time.RFC3339, sessions[j].UpdatedAt)
-		if err1 != nil || err2 != nil {
-			return false
-		}
-		return t1.After(t2)
+		return sessions[i].Port < sessions[j].Port
 	})
 
 	return sessions, nil

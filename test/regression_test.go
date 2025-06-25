@@ -24,7 +24,7 @@ func TestTUILaunchAndExit(t *testing.T) {
 	defer cancel()
 
 	// Test TUI binary exists and is executable
-	cmd := exec.CommandContext(ctx, "./uzi", "tui")
+	cmd := exec.CommandContext(ctx, "../uzi", "tui")
 	cmd.Stdin = nil // No input - should exit with terminal error
 
 	err := cmd.Run()
@@ -44,7 +44,7 @@ func TestConfigValidation(t *testing.T) {
 	}
 
 	// Test valid config loading
-	_, err = config.LoadConfig("uzi.yaml")
+	_, err = config.LoadConfig("../uzi.yaml")
 	if err != nil {
 		t.Errorf("Expected valid config to load, got error: %v", err)
 	}

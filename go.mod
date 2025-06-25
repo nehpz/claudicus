@@ -9,6 +9,7 @@ require (
 	github.com/charmbracelet/log v0.3.1
 	github.com/peterbourgon/ff/v3 v3.4.0
 	golang.org/x/term v0.6.0
+	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

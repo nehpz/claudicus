@@ -1,2 +1,5 @@
-devCommand: cd astrobits && yarn && yarn dev --port $PORT
-portRange: 3000-3010
+# Development environment setup
+devCommand: go mod download
+
+# Port range for agent development servers (when agents run web services)
+portRange: 3050-3060

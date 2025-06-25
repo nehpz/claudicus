@@ -18,6 +18,9 @@ import (
 	"github.com/nehpz/claudicus/pkg/state"
 )
 
+// execCommand allows mocking exec.Command for testing (separate from tmux.go variable)
+var uziExecCommand = exec.Command
+
 // SessionInfo contains displayable information about a session
 type SessionInfo struct {
 	Name        string `json:"name"`
@@ -114,7 +117,7 @@ func (c *UziCLI) executeCommandWithTimeout(timeout time.Duration, name string, a
 	var lastErr error
 
 	for attempt := 0; attempt <= c.config.Retries; attempt++ {
-		cmd := exec.Command(name, args...)
+		cmd := uziExecCommand(name, args...)
 
 		// Set up stdout and stderr capture
 		var stdout, stderr bytes.Buffer
@@ -388,7 +391,7 @@ func (c *UziCLI) getAgentStatus(sessionName string) string {
 
 // getPaneContent gets the content of a tmux pane
 func (c *UziCLI) getPaneContent(sessionName string) (string, error) {
-	cmd := exec.Command("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
+	cmd := uziExecCommand("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
@@ -403,7 +406,7 @@ func (c *UziCLI) getGitDiffTotals(sessionName string, sessionState *state.AgentS
 	}
 
 	shellCmdString := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
-	cmd := exec.Command("sh", "-c", shellCmdString)
+	cmd := uziExecCommand("sh", "-c", shellCmdString)
 	cmd.Dir = sessionState.WorktreePath
 
 	output, err := cmd.Output()

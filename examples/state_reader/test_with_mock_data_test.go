@@ -1,47 +1,48 @@
+//go:build examples
+
 package main
 
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/nehpz/claudicus/pkg/state"
 )
 
-func main() {
+func TestStateReaderWithMockData(t *testing.T) {
 	// Create temporary directory for test
 	tempDir, err := os.MkdirTemp("", "uzi_test_*")
 	if err != nil {
-		log.Fatalf("Failed to create temp dir: %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
 	// Create .uzi directory
 	uziDir := filepath.Join(tempDir, ".uzi")
 	if err := os.MkdirAll(uziDir, 0755); err != nil {
-		log.Fatalf("Failed to create .uzi dir: %v", err)
+		t.Fatalf("Failed to create .uzi dir: %v", err)
 	}
 
 	// Create mock state data
-	mockStates := createMockStates()
+	mockStates := createTestMockStates()
 
 	// Write mock state to file
 	stateFile := filepath.Join(uziDir, "state.json")
 	data, err := json.MarshalIndent(mockStates, "", "  ")
 	if err != nil {
-		log.Fatalf("Failed to marshal mock data: %v", err)
+		t.Fatalf("Failed to marshal mock data: %v", err)
 	}
 
 	if err := os.WriteFile(stateFile, data, 0644); err != nil {
-		log.Fatalf("Failed to write state file: %v", err)
+		t.Fatalf("Failed to write state file: %v", err)
 	}
 
-	fmt.Printf("Created mock state file: %s\n", stateFile)
-	fmt.Printf("Mock state content:\n%s\n\n", string(data))
+	t.Logf("Created mock state file: %s", stateFile)
 
 	// Test the state reader
 	reader := state.NewStateReader(tempDir)
@@ -49,23 +50,40 @@ func main() {
 	// Load all sessions
 	sessions, err := reader.LoadSessions()
 	if err != nil {
-		log.Fatalf("Failed to load sessions: %v", err)
+		t.Fatalf("Failed to load sessions: %v", err)
 	}
 
-	fmt.Printf("=== Loaded Sessions (%d) ===\n", len(sessions))
-	printSessions(sessions)
+	// Verify we loaded the expected number of sessions
+	expectedSessionCount := len(mockStates)
+	if len(sessions) != expectedSessionCount {
+		t.Errorf("Expected %d sessions, got %d", expectedSessionCount, len(sessions))
+	}
+
+	t.Logf("Loaded Sessions (%d)", len(sessions))
+	logTestSessions(t, sessions)
 
 	// Get active sessions (would be none since tmux sessions don't exist)
 	activeSessions, err := reader.GetActiveSessions()
 	if err != nil {
-		log.Fatalf("Failed to get active sessions: %v", err)
+		t.Fatalf("Failed to get active sessions: %v", err)
 	}
 
-	fmt.Printf("\n=== Active Sessions (%d) ===\n", len(activeSessions))
-	printSessions(activeSessions)
+	t.Logf("Active Sessions (%d)", len(activeSessions))
+	logTestSessions(t, activeSessions)
+
+	// Verify session data integrity
+	for _, session := range sessions {
+		if session.AgentName == "" {
+			t.Error("Found session with empty AgentName")
+		}
+		if session.Model == "" {
+			t.Error("Found session with empty Model")
+		}
+	}
 }
 
-func createMockStates() map[string]state.AgentState {
+
+func createTestMockStates() map[string]state.AgentState {
 	now := time.Now()
 	
 	return map[string]state.AgentState{
@@ -105,19 +123,23 @@ func createMockStates() map[string]state.AgentState {
 	}
 }
 
-func printSessions(sessions []state.SessionInfo) {
+
+func logTestSessions(t *testing.T, sessions []state.SessionInfo) {
 	if len(sessions) == 0 {
-		fmt.Println("No sessions found")
+		t.Log("No sessions found")
 		return
 	}
 
-	// Print as formatted table
-	fmt.Printf("%-15s %-15s %-10s %-8s %-20s %-40s\n", 
+	// Log as formatted table
+	t.Logf("%-15s %-15s %-10s %-8s %-20s %-40s", 
 		"AGENT", "MODEL", "STATUS", "DIFF", "DEV_SERVER", "PROMPT")
-	fmt.Println(strings.Repeat("-", 120))
+	t.Log(strings.Repeat("-", 120))
 
 	for _, session := range sessions {
-		diff := fmt.Sprintf("+%d/-%d", session.Insertions, session.Deletions)
+		diff := ""
+		if session.Insertions > 0 || session.Deletions > 0 {
+			diff = fmt.Sprintf("+%d/-%d", session.Insertions, session.Deletions)
+		}
 		
 		// Truncate prompt if too long
 		prompt := session.Prompt
@@ -130,7 +152,7 @@ func printSessions(sessions []state.SessionInfo) {
 			devServer = "none"
 		}
 
-		fmt.Printf("%-15s %-15s %-10s %-8s %-20s %-40s\n",
+		t.Logf("%-15s %-15s %-10s %-8s %-20s %-40s",
 			session.AgentName,
 			session.Model,
 			session.Status,
@@ -139,13 +161,4 @@ func printSessions(sessions []state.SessionInfo) {
 			prompt,
 		)
 	}
-
-	// Also print as JSON for debugging
-	fmt.Printf("\n=== JSON Output ===\n")
-	jsonData, err := json.MarshalIndent(sessions, "", "  ")
-	if err != nil {
-		fmt.Printf("Error marshaling to JSON: %v\n", err)
-		return
-	}
-	fmt.Println(string(jsonData))
 }

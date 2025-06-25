@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// execCommand allows mocking exec.Command for testing
+var execCommand = exec.Command
+
 // TmuxSessionInfo represents information about a tmux session
 type TmuxSessionInfo struct {
 	Name        string    `json:"name"`
@@ -133,7 +136,7 @@ func (td *TmuxDiscovery) GetSessionActivity(sessionName string) string {
 // discoverTmuxSessions calls `tmux ls` and parses the output
 func (td *TmuxDiscovery) discoverTmuxSessions() (map[string]TmuxSessionInfo, error) {
 	// Call tmux list-sessions with detailed format
-	cmd := exec.Command("tmux", "list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}")
+	cmd := execCommand("tmux", "list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}")
 	output, err := cmd.Output()
 	if err != nil {
 		// If tmux command fails, it might be because no sessions exist
@@ -208,7 +211,7 @@ func (td *TmuxDiscovery) parseSessionLine(line string) (TmuxSessionInfo, error) 
 // getSessionWindows gets window names and pane count for a session
 func (td *TmuxDiscovery) getSessionWindows(sessionName string) ([]string, int, error) {
 	// Get window information
-	windowCmd := exec.Command("tmux", "list-windows", "-t", sessionName, "-F", "#{window_name}")
+	windowCmd := execCommand("tmux", "list-windows", "-t", sessionName, "-F", "#{window_name}")
 	windowOutput, err := windowCmd.Output()
 	if err != nil {
 		return nil, 0, err
@@ -220,7 +223,7 @@ func (td *TmuxDiscovery) getSessionWindows(sessionName string) ([]string, int, e
 	}
 
 	// Get pane count
-	paneCmd := exec.Command("tmux", "list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}")
+	paneCmd := execCommand("tmux", "list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}")
 	paneOutput, err := paneCmd.Output()
 	if err != nil {
 		return windowNames, 0, err
@@ -312,7 +315,7 @@ func (td *TmuxDiscovery) hasAgentWindow(sessionName string) bool {
 
 // getAgentWindowContent gets the content of the agent window/pane
 func (td *TmuxDiscovery) getAgentWindowContent(sessionName string) (string, error) {
-	cmd := exec.Command("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
+	cmd := execCommand("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
 	output, err := cmd.Output()
 	if err != nil {
 		return "", err
