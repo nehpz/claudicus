@@ -242,7 +242,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.splitView {
 			// DiffPreview doesn't need to handle its own updates
 		}
-		}
 		
 		return a, tea.Batch(cmds...)
 		
@@ -258,15 +257,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The list has already been updated in refreshSessions()
 		return a, nil
 		
-	case DiffViewMsg:
-		// Handle diff view updates
-		if a.splitView {
-			var cmd tea.Cmd
-			a.diffView, cmd = a.diffView.Update(msg)
-			return a, cmd
-		}
-		return a, nil
-		
 	default:
 		// Delegate other messages to appropriate components
 		var cmd tea.Cmd
@@ -275,11 +265,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			*a.list = listModel
 		}
 		cmds = append(cmds, cmd)
-		
-		if a.splitView {
-			// DiffPreview doesn't need to handle its own updates
-		}
-		}
 		
 		return a, tea.Batch(cmds...)
 	}
@@ -331,4 +316,5 @@ func (a *App) View() string {
 		}
 		
 		return listView
+	}
 }
