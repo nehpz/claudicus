@@ -1,8 +1,8 @@
 
 # Run tests with coverage
 .PHONY: test
-test:
-	go test ./... -coverprofile=coverage.out
+test: install
+	PATH=$(HOME)/.local/bin:$(PATH) go test ./... -coverprofile=coverage.out
 
 # Run tests with coverage, continue on failure
 .PHONY: test-with-coverage
@@ -21,7 +21,8 @@ test-ci: test coverage-check
 # Makefile for uzi.go
 
 # Variables
-GO_FILES := $(wildcard *.go)
+# Main source file
+MAIN_FILE := uzi.go
 BINARY := uzi
 
 # Default target
@@ -29,7 +30,7 @@ all: build
 
 # Build the Go binary
 build:
-	go build -o $(BINARY) $(GO_FILES)
+	go build -o $(BINARY) .
 
 # Run the Go program
 run: build

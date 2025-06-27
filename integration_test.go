@@ -28,7 +28,7 @@ func TestTUILaunchAndExit(t *testing.T) {
 	defer cancel()
 
 	// Test TUI binary exists and is executable
-	cmd := exec.CommandContext(ctx, "./uzi", "tui")
+	cmd := exec.CommandContext(ctx, "uzi", "tui")
 	cmd.Stdin = nil // No input - should exit with terminal error
 
 	err := cmd.Run()
@@ -124,7 +124,7 @@ func TestTUIComponentsExist(t *testing.T) {
 // TestUziCommandIntegration tests the TUI's integration with core uzi commands
 func TestUziCommandIntegration(t *testing.T) {
 	// Skip if uzi binary doesn't exist
-	if _, err := os.Stat("./uzi"); os.IsNotExist(err) {
+	if _, err := exec.LookPath("uzi"); err != nil {
 		t.Skip("Skipping integration test - uzi binary not found")
 	}
 
@@ -132,7 +132,7 @@ func TestUziCommandIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "./uzi", "ls")
+	cmd := exec.CommandContext(ctx, "uzi", "ls")
 	output, err := cmd.Output()
 	
 	// Command should succeed (even if no sessions)
@@ -272,7 +272,7 @@ func TestTmuxIntegration(t *testing.T) {
 // TestCommandAliasIntegration tests that aliases work in actual command execution
 func TestCommandAliasIntegration(t *testing.T) {
 	// Skip if uzi binary doesn't exist
-	if _, err := os.Stat("./uzi"); os.IsNotExist(err) {
+	if _, err := exec.LookPath("uzi"); err != nil {
 		t.Skip("Skipping integration test - uzi binary not found")
 	}
 
@@ -293,10 +293,10 @@ func TestCommandAliasIntegration(t *testing.T) {
 			defer cancel()
 
 			// Test alias with --help flag (safest option)
-			cmdAlias := exec.CommandContext(ctx, "./uzi", tt.alias, "--help")
+			cmdAlias := exec.CommandContext(ctx, "uzi", tt.alias, "--help")
 			outputAlias, errAlias := cmdAlias.Output()
 
-			cmdFull := exec.CommandContext(ctx, "./uzi", tt.full, "--help")
+			cmdFull := exec.CommandContext(ctx, "uzi", tt.full, "--help")
 			outputFull, errFull := cmdFull.Output()
 
 			// Both should succeed with help

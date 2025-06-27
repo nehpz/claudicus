@@ -191,8 +191,8 @@ func (c *UziCLI) GetSessions() ([]SessionInfo, error) {
 	start := time.Now()
 	defer func() { c.logOperation("GetSessions", time.Since(start), nil) }()
 
-	// Shell out to uzi ls --json (use ./uzi for testing to get current binary)
-	output, err := c.executeCommand("./uzi", "ls", "--json")
+	// Shell out to uzi ls --json
+	output, err := c.executeCommand("uzi", "ls", "--json")
 	if err != nil {
 		return nil, c.wrapError("GetSessions", err)
 	}
@@ -323,7 +323,7 @@ func (c *UziCLI) AttachToSession(sessionName string) error {
 func (c *UziCLI) KillSession(sessionName string) error {
 	// Extract agent name from session name
 	agentName := extractAgentName(sessionName)
-	_, err := c.executeCommand("./uzi", "kill", agentName)
+	_, err := c.executeCommand("uzi", "kill", agentName)
 	if err != nil {
 		return c.wrapError("KillSession", err)
 	}
@@ -339,7 +339,7 @@ func (c *UziCLI) RefreshSessions() error {
 
 // RunPrompt implements UziInterface using the proxy pattern
 func (c *UziCLI) RunPrompt(agents string, prompt string) error {
-	_, err := c.executeCommand("./uzi", "prompt", "--agents", agents, prompt)
+	_, err := c.executeCommand("uzi", "prompt", "--agents", agents, prompt)
 	if err != nil {
 		return c.wrapError("RunPrompt", err)
 	}
@@ -348,7 +348,7 @@ func (c *UziCLI) RunPrompt(agents string, prompt string) error {
 
 // RunBroadcast implements UziInterface using the proxy pattern
 func (c *UziCLI) RunBroadcast(message string) error {
-	_, err := c.executeCommand("./uzi", "broadcast", message)
+	_, err := c.executeCommand("uzi", "broadcast", message)
 	if err != nil {
 		return c.wrapError("RunBroadcast", err)
 	}
@@ -357,7 +357,7 @@ func (c *UziCLI) RunBroadcast(message string) error {
 
 // RunCommand implements UziInterface using the proxy pattern
 func (c *UziCLI) RunCommand(command string) error {
-	_, err := c.executeCommand("./uzi", "run", command)
+	_, err := c.executeCommand("uzi", "run", command)
 	if err != nil {
 		return c.wrapError("RunCommand", err)
 	}

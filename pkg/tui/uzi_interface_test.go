@@ -328,10 +328,10 @@ func TestUziCLI_GetSessions(t *testing.T) {
 			cli := NewUziCLI()
 
 			if tt.errorType == "command" {
-				cmdmock.SetResponseWithArgs("./uzi", []string{"ls", "--json"}, 
+				cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"}, 
 					"", "command failed", true)
 			} else {
-				cmdmock.SetResponseWithArgs("./uzi", []string{"ls", "--json"}, 
+				cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"}, 
 					tt.mockJSON, "", false)
 			}
 
@@ -765,7 +765,7 @@ func TestUziCLI_SessionManagement(t *testing.T) {
 			name:          "KillSession - Success",
 			method:        "KillSession",
 			sessionName:   "agent-proj-abc123-claude",
-			mockCmd:       "./uzi",
+			mockCmd:       "uzi",
 			mockArgs:      []string{"kill", "claude"},
 			mockStdout:    "Session killed",
 			mockStderr:    "",
@@ -777,7 +777,7 @@ func TestUziCLI_SessionManagement(t *testing.T) {
 			name:          "KillSession - Agent not found",
 			method:        "KillSession",
 			sessionName:   "agent-proj-abc123-nonexistent",
-			mockCmd:       "./uzi",
+			mockCmd:       "uzi",
 			mockArgs:      []string{"kill", "nonexistent"},
 			mockStdout:    "",
 			mockStderr:    "agent not found",
@@ -788,7 +788,7 @@ func TestUziCLI_SessionManagement(t *testing.T) {
 		{
 			name:          "RunPrompt - Success",
 			method:        "RunPrompt",
-			mockCmd:       "./uzi",
+			mockCmd:       "uzi",
 			mockArgs:      []string{"prompt", "--agents", "claude:1", "test prompt"},
 			mockStdout:    "Prompt started",
 			mockStderr:    "",
@@ -799,7 +799,7 @@ func TestUziCLI_SessionManagement(t *testing.T) {
 		{
 			name:          "RunBroadcast - Success",
 			method:        "RunBroadcast",
-			mockCmd:       "./uzi",
+			mockCmd:       "uzi",
 			mockArgs:      []string{"broadcast", "test message"},
 			mockStdout:    "Message sent",
 			mockStderr:    "",
@@ -810,7 +810,7 @@ func TestUziCLI_SessionManagement(t *testing.T) {
 		{
 			name:          "RunCommand - Success",
 			method:        "RunCommand",
-			mockCmd:       "./uzi",
+			mockCmd:       "uzi",
 			mockArgs:      []string{"run", "echo test"},
 			mockStdout:    "Command executed",
 			mockStderr:    "",
@@ -1199,7 +1199,7 @@ func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 			Port:         8080,
 		},
 	}
-	cmdmock.SetResponseWithArgs("./uzi", []string{"ls", "--json"}, 
+	cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"}, 
 		createSessionJSON(testSessions), "", false)
 
 	// Test IsSessionAttached

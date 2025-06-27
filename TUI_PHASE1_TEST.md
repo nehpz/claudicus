@@ -5,13 +5,13 @@
 - **Repository**: /Users/stephen/Projects/rzp-labs/claudicus
 - **Command Tested**: `go run ./cmd/tui`
 - **Platform**: macOS with zsh 5.9
-- **Uzi State**: Active sessions present (verified with `./uzi ls`)
+- **Uzi State**: Active sessions present (verified with `uzi ls`)
 
 ## Pre-Test Setup
 
 ### Active Sessions Created
 ```bash
-$ ./uzi ls
+$ uzi ls
 AGENT   MODEL   STATUS    DIFF  ADDR                     PROMPT
 samuel  claude  ready  +0/-0  http://localhost:3001  Work on different test tasks
 mark    claude  ready  +0/-0  http://localhost:3000  Work on different test tasks

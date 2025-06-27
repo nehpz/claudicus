@@ -19,13 +19,13 @@ echo "✅ Build successful"
 # Basic command test
 echo ""
 echo "📋 Basic command test..."
-./uzi ls > /dev/null 2>&1
+uzi ls > /dev/null 2>&1
 echo "✅ uzi ls works"
 
 # TUI terminal detection test
 echo ""
 echo "🖥️  TUI terminal detection test..."
-echo 'q' | ./uzi tui 2>&1 | grep -q "TUI requires a terminal environment"
+echo 'q' | uzi tui 2>&1 | grep -q "TUI requires a terminal environment"
 if [ $? -eq 0 ]; then
     echo "✅ TUI terminal detection works"
 else

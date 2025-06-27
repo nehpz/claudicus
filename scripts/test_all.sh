@@ -12,7 +12,7 @@ echo "=================================="
 cd "$(dirname "$0")/.."
 
 # Check if uzi binary exists
-if [ ! -f "./uzi" ]; then
+if [ ! -f "uzi" ]; then
     echo "⚠️  Building uzi binary first..."
     go build -o uzi .
     echo "✅ Binary built successfully"
@@ -78,7 +78,7 @@ echo ""
 echo "🎯 Testing TUI Terminal Detection..."
 echo "-----------------------------------"
 echo "Testing TUI with non-terminal input..."
-echo 'q' | ./uzi tui 2>&1 | grep -q "TUI requires a terminal environment"
+echo 'q' | uzi tui 2>&1 | grep -q "TUI requires a terminal environment"
 if [ $? -eq 0 ]; then
     echo "✅ TUI correctly detects non-terminal environment"
 else

@@ -200,9 +200,9 @@ func getCurrentDir() string {
 func createMockCommand(response CommandResponse) *exec.Cmd {
 	// Create a command that will echo our response and exit with the desired code
 	script := fmt.Sprintf(`
-		echo -n "%s"
+		printf "%s"
 		if [ "%s" != "" ]; then
-			echo -n "%s" >&2
+			printf "%s" >&2
 		fi
 		exit %d
 	`, escapeShell(response.Stdout), response.Stderr, escapeShell(response.Stderr), response.ExitCode)

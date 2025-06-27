@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -14,7 +13,7 @@ import (
 // TestUziCommandIntegration tests the TUI's integration with core uzi commands
 func TestUziCommandIntegration(t *testing.T) {
 	// Skip if uzi binary doesn't exist
-	if _, err := os.Stat("../uzi"); os.IsNotExist(err) {
+	if _, err := exec.LookPath("uzi"); err != nil {
 		t.Skip("Skipping integration test - uzi binary not found")
 	}
 
@@ -22,7 +21,7 @@ func TestUziCommandIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "../uzi", "ls")
+	cmd := exec.CommandContext(ctx, "uzi", "ls")
 	output, err := cmd.Output()
 	
 	// Command should succeed (even if no sessions)
