@@ -870,6 +870,15 @@ func TestUziCLI_RefreshSessions(t *testing.T) {
 func TestUziCLI_GetSessionState(t *testing.T) {
 	setupUziTest()
 
+	testStates := map[string]state.AgentState{
+		"agent-proj-abc123-claude": {
+			Model:        "claude-3-5-sonnet-20241022",
+			Prompt:       "Write a hello world program",
+			WorktreePath: "/tmp/worktree1",
+			Port:         8080,
+		},
+	}
+
 	tests := []struct {
 		name           string
 		sessionName    string
@@ -909,9 +918,15 @@ func TestUziCLI_GetSessionState(t *testing.T) {
 			if !tt.setupState {
 				cli.stateManager = nil
 			} else {
-				// Skip state manager setup for now due to type constraints
-				// TODO: Create proper interface for state manager
-				t.Skip("Skipping test that requires state manager setup")
+				// Create temp state file and set up mock state manager
+				stateFile := createTempStateFile(t, testStates)
+				defer os.Remove(stateFile)
+				
+				// Set up mock state manager
+				cli.stateManager = &mockStateManagerForTest{
+					activeSessions: []string{"agent-proj-abc123-claude"},
+					statePath:      stateFile,
+				}
 			}
 
 			sessionState, err := cli.GetSessionState(tt.sessionName)
@@ -1254,18 +1269,95 @@ func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 func TestUziCLI_AttachToSession(t *testing.T) {
 	setupUziTest()
 	
-	// Skip this test as it requires proper tmux session setup
-	// TODO: Improve mocking to properly test session attachment
-	t.Skip("Skipping AttachToSession test - requires proper tmux mocking")
+	cli := NewUziCLI()
+
+	// Mock tmux attach-session command to succeed - need to mock exec.Command directly
+	cmdmock.SetResponseWithArgs("tmux", []string{"attach-session", "-t", "test-session"}, 
+		"", "", false)
+
+	// This would normally block in a real terminal, but with mocking it should return
+	err := cli.AttachToSession("test-session")
+	if err != nil {
+		// The attach command failing is actually expected in a test environment
+		// since it would try to attach to a non-existent session
+		// Let's just verify the error message contains expected text
+		if !strings.Contains(err.Error(), "AttachToSession") {
+			t.Errorf("Expected AttachToSession error, got: %v", err)
+		}
+	}
+
+	// Test with explicit command failure
+	cmdmock.SetResponseWithArgs("tmux", []string{"attach-session", "-t", "bad-session"}, 
+		"", "session not found", true)
+
+	err = cli.AttachToSession("bad-session")
+	if err == nil {
+		t.Error("Expected error for non-existent session")
+	}
 }
 
 // Test internal\helper methods
 func TestUziCLI_InternalMethods(t *testing.T) {
 	setupUziTest()
-	
-	// Skip this test as it requires proper tmux session state mocking
-	// TODO: Improve mocking to properly test internal tmux methods
-	t.Skip("Skipping InternalMethods test - requires proper tmux state mocking")
+	cli := NewUziCLI()
+
+	// Mock empty tmux output (no sessions exist)
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		"", "", false)
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_attached}"}, 
+		"", "", false)
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}:#{session_activity}"}, 
+		"", "", false)
+
+	// Refresh the cache to use our mocked commands
+	cli.RefreshTmuxCache()
+
+	// Test IsSessionAttached - should return false for non-existent session
+	attached := cli.IsSessionAttached("test-session")
+	if attached {
+		t.Error("Expected false for non-existent session")
+	}
+
+	// Test GetSessionActivity - should return "inactive" for non-existent session
+	activity := cli.GetSessionActivity("test-session")
+	if activity != "inactive" {
+		t.Errorf("Expected 'inactive' for non-existent session, got: %q", activity)
+	}
+
+	// Test GetAttachedSessionCount - should return 0 when no sessions exist
+	count, err := cli.GetAttachedSessionCount()
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if count != 0 {
+		t.Errorf("Expected 0 attached sessions when no sessions exist, got: %d", count)
+	}
+
+	// Test RefreshTmuxCache - should not panic
+	cli.RefreshTmuxCache()
+
+	// Test GetTmuxSessionsByActivity - should return map with 3 empty groups when no sessions exist
+	sessions, err := cli.GetTmuxSessionsByActivity()
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	expectedGroups := []string{"attached", "active", "inactive"}
+	if len(sessions) != len(expectedGroups) {
+		t.Errorf("Expected %d activity groups, got: %d", len(expectedGroups), len(sessions))
+	}
+	for _, group := range expectedGroups {
+		if groupSessions, exists := sessions[group]; !exists {
+			t.Errorf("Expected group '%s' to exist", group)
+		} else if len(groupSessions) != 0 {
+			t.Errorf("Expected group '%s' to be empty, got %d sessions", group, len(groupSessions))
+		}
+	}
+
+	// Test FormatSessionActivity - should return "○" for "inactive" activity
+	formatted := cli.FormatSessionActivity("test-session")
+	if formatted != "○" {
+		t.Errorf("Expected '○' for inactive session, got: %q", formatted)
+	}
 }
 
 // Test executeCommand for retry logic

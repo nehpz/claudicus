@@ -84,8 +84,14 @@ func DefaultProxyConfig() ProxyConfig {
 
 // UziCLI implements UziInterface by providing a consistent proxy layer
 // All operations go through this proxy for unified error handling, logging, and debugging
+// StateManagerInterface defines the interface for state management operations
+type StateManagerInterface interface {
+	GetActiveSessionsForRepo() ([]string, error)
+	GetStatePath() string
+}
+
 type UziCLI struct {
-	stateManager  *state.StateManager
+	stateManager  StateManagerInterface
 	tmuxDiscovery *TmuxDiscovery
 	config        ProxyConfig
 }
