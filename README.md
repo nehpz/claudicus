@@ -191,7 +191,7 @@ uzi reset
 **Running different AI tools:**
 
 ```bash
-uzi prompt --agents=claude:2,aider:2,cursor:1 "Refactor the authentication system"
+uzi prompt --agents=claude:2,aider:2,cursor:1,gemini:1 "Refactor the authentication system"
 ```
 
 **Using random agent names:**
