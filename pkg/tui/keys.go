@@ -19,6 +19,10 @@ type KeyMap struct {
 	// Action keys
 	Enter  key.Binding
 	Escape key.Binding
+	Tab    key.Binding  // Toggle between list and split view
+	
+	// Agent management keys
+	Broadcast key.Binding  // Broadcast message to agents
 	
 	// Application actions
 	Help    key.Binding
@@ -59,6 +63,16 @@ func DefaultKeyMap() KeyMap {
 		Escape: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "back"),
+		),
+		Tab: key.NewBinding(
+			key.WithKeys("tab"),
+			key.WithHelp("tab", "toggle split view"),
+		),
+		
+		// Agent management
+		Broadcast: key.NewBinding(
+			key.WithKeys("b"),
+			key.WithHelp("b", "broadcast message"),
 		),
 		
 		// Application

@@ -85,6 +85,8 @@ func getCommandForAgent(agent string) string {
 		return "cursor"
 	case "codex":
 		return "codex"
+	case "gemini":
+		return "gemini"
 	case "random":
 		return "claude" // Default for random agents
 	default:
@@ -298,7 +300,12 @@ func executePrompt(ctx context.Context, args []string) error {
 				}
 
 				// Always run send-keys command to the agent pane
-				tmuxCmd := fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+			var tmuxCmd string
+			if commandToUse == "gemini" {
+				tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%%s\"' C-m", sessionName, commandToUse)
+			} else {
+				tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+			}
 				tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
 				tmuxCmdExec.Dir = worktreePath
 				if err := tmuxCmdExec.Run(); err != nil {
@@ -363,7 +370,12 @@ func executePrompt(ctx context.Context, args []string) error {
 			assignedPorts = append(assignedPorts, selectedPort)
 
 			// Always run send-keys command to the agent pane
-			tmuxCmd := fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+            var tmuxCmd string
+            if commandToUse == "gemini" {
+                tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%%s\"' C-m", sessionName, commandToUse)
+            } else {
+                tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+            }
 			tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
 			tmuxCmdExec.Dir = worktreePath
 			if err := tmuxCmdExec.Run(); err != nil {

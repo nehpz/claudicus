@@ -24,7 +24,7 @@ func TestParseAgents(t *testing.T) {
 			agentsStr: "claude:2,gemini:3",
 			expected: map[string]AgentConfig{
 				"claude": {Command: "claude", Count: 2},
-				"gemini": {Command: "gemini-cli", Count: 3},
+				"gemini": {Command: "gemini", Count: 3},
 			},
 			expectErr: false,
 		},
@@ -84,7 +84,7 @@ func TestGetCommandForAgent(t *testing.T) {
 		{"claude", "claude"},
 		{"cursor", "cursor"},
 		{"codex", "codex"},
-		{"gemini", "gemini-cli"},
+		{"gemini", "gemini"},
 		{"random", "claude"},
 		{"unknown", "unknown"},
 	}

@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // RefreshMsg is sent by the ticker to refresh sessions without clearing screen
@@ -18,26 +19,34 @@ type TickMsg time.Time
 
 // App represents the main TUI application
 type App struct {
-	uzi      UziInterface
-	list     *ListModel
-	keys     KeyMap
-	ticker   *time.Ticker
-	width    int
-	height   int
-	loading  bool
+	uzi           UziInterface
+	list          *ListModel
+	diffPreview   *DiffPreviewModel
+	broadcastInput *BroadcastInputModel
+	keys          KeyMap
+	ticker        *time.Ticker
+	width         int
+	height        int
+	loading       bool
+	splitView     bool // Toggle between list-only and split view
 }
 
 // NewApp creates a new TUI application instance
 func NewApp(uzi UziInterface) *App {
 	// Initialize the list view
 	list := NewListModel(80, 24) // Default size, will be updated on first render
+	diffPreview := NewDiffPreviewModel(40, 24) // Default size, will be updated on first render
+	broadcastInput := NewBroadcastInputModel()
 	
 	return &App{
-		uzi:     uzi,
-		list:    &list,
-		keys:    DefaultKeyMap(),
-		ticker:  nil, // Will be created in Init
-		loading: true,
+		uzi:           uzi,
+		list:          &list,
+		diffPreview:   diffPreview,
+		broadcastInput: broadcastInput,
+		keys:          DefaultKeyMap(),
+		ticker:        nil, // Will be created in Init
+		loading:     true,
+		splitView:   false, // Start in list view
 	}
 }
 
@@ -78,12 +87,60 @@ func (a *App) Init() tea.Cmd {
 
 // Update implements tea.Model interface
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle broadcast input when active
+		if a.broadcastInput.IsActive() {
+			switch {
+			case key.Matches(msg, a.keys.Enter):
+				// Execute broadcast and deactivate input
+				message := a.broadcastInput.Value()
+				a.broadcastInput.SetActive(false)
+				
+				if message != "" {
+					return a, func() tea.Msg {
+						err := a.uzi.RunBroadcast(message)
+						if err != nil {
+							// Handle error - for now just continue
+							return nil
+						}
+						// Refresh sessions after broadcast
+						return RefreshMsg{}
+					}
+				}
+				return a, nil
+				
+			case key.Matches(msg, a.keys.Escape):
+				// Cancel broadcast input
+				a.broadcastInput.SetActive(false)
+				return a, nil
+				
+			default:
+				// Delegate to broadcast input
+				var cmd tea.Cmd
+				a.broadcastInput, cmd = a.broadcastInput.Update(msg)
+				return a, cmd
+			}
+		}
+		
 		// Handle key events
 		switch {
 		case key.Matches(msg, a.keys.Quit):
 			return a, tea.Quit
+			
+		case key.Matches(msg, a.keys.Tab):
+			// Toggle between list view and split view
+			a.splitView = !a.splitView
+			
+			// When entering split view, load diff for selected session
+			if a.splitView {
+				if selected := a.list.SelectedSession(); selected != nil {
+					a.diffPreview.LoadDiff(selected)
+				}
+			}
+			return a, nil
 			
 		case key.Matches(msg, a.keys.Refresh):
 			// Manual refresh
@@ -118,31 +175,76 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return RefreshMsg{}
 				}
 			}
+			
+		case key.Matches(msg, a.keys.Broadcast):
+			// Activate broadcast input prompt
+			a.broadcastInput.SetActive(true)
+			a.broadcastInput.SetWidth(a.width)
+			return a, nil
 		}
 		
-		// Delegate other key events to the list
-		var cmd tea.Cmd
-		model, cmd := a.list.Update(msg)
-		if listModel, ok := model.(ListModel); ok {
-			*a.list = listModel
+		// In split view, handle navigation differently
+		if a.splitView {
+			// Track previous selection
+			prevSelected := a.list.SelectedSession()
+			
+			// Delegate navigation to the list
+			var cmd tea.Cmd
+			model, cmd := a.list.Update(msg)
+			if listModel, ok := model.(ListModel); ok {
+				*a.list = listModel
+			}
+			cmds = append(cmds, cmd)
+			
+			// If selection changed, update diff view
+			if newSelected := a.list.SelectedSession(); newSelected != nil {
+				if prevSelected == nil || prevSelected.Name != newSelected.Name {
+					a.diffPreview.LoadDiff(newSelected)
+				}
+			}
+			
+			return a, tea.Batch(cmds...)
+		} else {
+			// In list view, delegate all key events to the list
+			var cmd tea.Cmd
+			model, cmd := a.list.Update(msg)
+			if listModel, ok := model.(ListModel); ok {
+				*a.list = listModel
+			}
+			return a, cmd
 		}
-		return a, cmd
 		
 	case tea.WindowSizeMsg:
 		// Update dimensions
 		a.width = msg.Width
 		a.height = msg.Height
 		
-		// Update list size (leave space for potential status bar)
-		a.list.SetSize(msg.Width, msg.Height-2)
+		if a.splitView {
+			// In split view, allocate space for both list and diff
+			listWidth := msg.Width / 2
+			diffWidth := msg.Width - listWidth
+			
+			a.list.SetSize(listWidth, msg.Height-2)
+			a.diffPreview.SetSize(diffWidth, msg.Height-2)
+		} else {
+			// In list view, use full width
+			a.list.SetSize(msg.Width, msg.Height-2)
+		}
 		
-		// Delegate to list for its own size handling
+		// Delegate to components for their own size handling
 		var cmd tea.Cmd
 		model, cmd := a.list.Update(msg)
 		if listModel, ok := model.(ListModel); ok {
 			*a.list = listModel
 		}
-		return a, cmd
+		cmds = append(cmds, cmd)
+		
+		if a.splitView {
+			// DiffPreview doesn't need to handle its own updates
+		}
+		}
+		
+		return a, tea.Batch(cmds...)
 		
 	case TickMsg:
 		// Ticker fired - refresh sessions smoothly without clearing screen
@@ -156,14 +258,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The list has already been updated in refreshSessions()
 		return a, nil
 		
+	case DiffViewMsg:
+		// Handle diff view updates
+		if a.splitView {
+			var cmd tea.Cmd
+			a.diffView, cmd = a.diffView.Update(msg)
+			return a, cmd
+		}
+		return a, nil
+		
 	default:
-		// Delegate other messages to the list
+		// Delegate other messages to appropriate components
 		var cmd tea.Cmd
 		model, cmd := a.list.Update(msg)
 		if listModel, ok := model.(ListModel); ok {
 			*a.list = listModel
 		}
-		return a, cmd
+		cmds = append(cmds, cmd)
+		
+		if a.splitView {
+			// DiffPreview doesn't need to handle its own updates
+		}
+		}
+		
+		return a, tea.Batch(cmds...)
 	}
 }
 
@@ -174,14 +292,43 @@ func (a *App) View() string {
 		return "Loading..."
 	}
 	
-	// Delegate to the list view for rendering
-	listView := a.list.View()
-	
-	// Add a subtle status line if loading
-	if a.loading {
-		statusLine := ClaudeSquadMutedStyle.Render("Refreshing sessions...")
-		return listView + "\n" + statusLine
-	}
-	
-	return listView
+	if a.splitView {
+		// Split view: show list on left and diff on right
+		listView := a.list.View()
+		diffView := a.diffPreview.View()
+		
+		// Join horizontally with Claude Squad styling
+		splitContent := lipgloss.JoinHorizontal(lipgloss.Top, listView, diffView)
+		
+		// Add status line if loading
+		if a.loading {
+			statusLine := ClaudeSquadMutedStyle.Render("Refreshing sessions...")
+			return splitContent + "\n" + statusLine
+		}
+		
+		// Add broadcast input if active
+		content := splitContent
+		if a.broadcastInput.IsActive() {
+			broadcastView := a.broadcastInput.View()
+			content = lipgloss.JoinVertical(lipgloss.Left, content, broadcastView)
+		}
+		
+		return content
+	} else {
+		// List view: delegate to the list view for rendering
+		listView := a.list.View()
+		
+		// Add a subtle status line if loading
+		if a.loading {
+			statusLine := ClaudeSquadMutedStyle.Render("Refreshing sessions...")
+			listView = listView + "\n" + statusLine
+		}
+		
+		// Add broadcast input if active
+		if a.broadcastInput.IsActive() {
+			broadcastView := a.broadcastInput.View()
+			listView = lipgloss.JoinVertical(lipgloss.Left, listView, broadcastView)
+		}
+		
+		return listView
 }

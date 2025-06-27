@@ -347,11 +347,11 @@ func executeLs(ctx context.Context, args []string) error {
 		}
 	} else {
 		// Single run mode
+		fmt.Fprintf(os.Stderr, "DEBUG: Getting active sessions\n")
 		activeSessions, err := stateManager.GetActiveSessionsForRepo()
 		if err != nil {
 			return fmt.Errorf("error getting active sessions: %w", err)
 		}
-
 		if len(activeSessions) == 0 {
 			if *jsonOutput {
 				// Return empty JSON array
