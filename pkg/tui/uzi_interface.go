@@ -369,12 +369,50 @@ func (c *UziCLI) RunCommand(command string) error {
 // extractAgentName extracts the agent name from a session name
 // Session format: agent-projectDir-gitHash-agentName
 func extractAgentName(sessionName string) string {
+	// Session format: agent-<project>-<hash>-<agent-name>
+	// We need to find the last hash-like part and return everything after it
 	parts := strings.Split(sessionName, "-")
 	if len(parts) >= 4 && parts[0] == "agent" {
-		return strings.Join(parts[3:], "-")
+		// Look for the hash part - typically 6+ alphanumeric characters
+		// Start from the end and work backwards to find the last hash-like part
+		for i := len(parts) - 2; i >= 2; i-- {
+			part := parts[i]
+			if isHashLike(part) {
+				// Return everything after this hash part
+				return strings.Join(parts[i+1:], "-")
+			}
+		}
+		// Fallback: assume standard format agent-project-hash-agent
+		if len(parts) >= 4 {
+			return strings.Join(parts[3:], "-")
+		}
 	}
 	return sessionName
 }
+
+// isHashLike checks if a string looks like a git hash (alphanumeric, typically 6+ chars)
+func isHashLike(s string) bool {
+	if len(s) < 6 {
+		return false
+	}
+	
+	hasDigit := false
+	hasLetter := false
+	
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			hasDigit = true
+		} else if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			hasLetter = true
+		} else {
+			return false // Contains non-alphanumeric character
+		}
+	}
+	
+	// A hash should have both letters and digits
+	return hasDigit && hasLetter
+}
+
 
 // getAgentStatus determines the current status of an agent session
 func (c *UziCLI) getAgentStatus(sessionName string) string {
