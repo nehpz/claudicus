@@ -1964,10 +1964,10 @@ func TestMaximumCodePathHitting(t *testing.T) {
 				t.Logf("Executor %d Args %d: %v", i, j, err)
 			})
 		}
-	}
+}
 
-	// TestUncoveredLines specifically targets lines that are not covered
-	func TestUncoveredLines(t *testing.T) {
+// TestUncoveredLines specifically targets lines that are not covered
+func TestUncoveredLines(t *testing.T) {
 		// Based on coverage analysis, we need to hit specific uncovered lines
 		// This test tries multiple execution paths to maximize line coverage
 
