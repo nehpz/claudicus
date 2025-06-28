@@ -287,16 +287,19 @@ Uzi is a Go-based CLI tool for orchestrating multiple AI coding agents in parall
 ### Core Architecture
 
 **Command Structure:**
+
 - Main entry point: `uzi.go` with subcommand routing using `ffcli`
 - Commands in `cmd/` directory: `broadcast`, `checkpoint`, `kill`, `ls`, `prompt`, `reset`, `run`, `watch`
 - Core packages in `pkg/`: `agents`, `config`, `state`
 
 **Key Components:**
+
 - `StateManager` (`pkg/state/state.go`): Manages agent session state in JSON format at `~/.local/share/uzi/state.json`
 - `Config` (`pkg/config/config.go`): Handles `uzi.yaml` configuration files with `devCommand` and `portRange`
 - `AgentState`: Tracks git repo, branch, worktree path, port, model, and timestamps for each agent
 
 **Agent Lifecycle:**
+
 1. `prompt` command creates new agent sessions with isolated git worktrees
 2. Each agent gets its own tmux session and development server port
 3. `ls` command shows status of all active agents with diff stats
@@ -306,6 +309,7 @@ Uzi is a Go-based CLI tool for orchestrating multiple AI coding agents in parall
 ### Development Commands
 
 **Building and Testing:**
+
 ```bash
 # Build the binary
 make build
@@ -321,6 +325,7 @@ go build -o uzi uzi.go
 ```
 
 **Installation and Setup:**
+
 ```bash
 # Install from source
 go install github.com/devflowinc/uzi@latest
@@ -331,6 +336,7 @@ echo "portRange: 3000-3010" >> uzi.yaml
 ```
 
 **Testing Commands:**
+
 - Currently no automated test suite - relies on manual testing
 - Use `uzi ls -w` to monitor agent status during development
 - Test agent creation with `uzi prompt --agents random:1 "test task"`
@@ -338,12 +344,14 @@ echo "portRange: 3000-3010" >> uzi.yaml
 ### Configuration
 
 **uzi.yaml Structure:**
+
 ```yaml
 devCommand: cd your-project && npm run dev --port $PORT
 portRange: 3000-3010
 ```
 
 **State Management:**
+
 - Agent state stored in `~/.local/share/uzi/state.json`
 - Worktree branches tracked in `~/.local/share/uzi/worktree/{session}/tree`
 - Automatic cleanup on agent termination
@@ -351,11 +359,13 @@ portRange: 3000-3010
 ### Dependencies
 
 **Runtime Dependencies:**
+
 - Git (for worktree management)
 - Tmux (for session management)
 - AI tools (Claude, Cursor, etc.)
 
 **Go Dependencies:**
+
 - `github.com/charmbracelet/log` - Structured logging
 - `github.com/peterbourgon/ff/v3` - CLI framework with ffcli
 - `gopkg.in/yaml.v3` - YAML configuration parsing

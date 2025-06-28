@@ -13,6 +13,20 @@ import (
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
+// CommandExecutor abstracts the execution of external commands
+type CommandExecutor interface {
+	Execute(command string, args ...string) error
+}
+
+// RealCommandExecutor implements CommandExecutor using exec.Command
+type RealCommandExecutor struct{}
+
+// Execute runs the command using exec.Command
+func (r *RealCommandExecutor) Execute(command string, args ...string) error {
+	cmd := exec.Command(command, args...)
+	return cmd.Run()
+}
+
 var (
 	fs           = flag.NewFlagSet("uzi broadcast", flag.ExitOnError)
 	CmdBroadcast = &ffcli.Command{
@@ -20,11 +34,14 @@ var (
 		ShortUsage: "uzi broadcast <message>",
 		ShortHelp:  "Send a message to all active agent sessions",
 		FlagSet:    fs,
-		Exec:       executeBroadcast,
+		Exec: func(ctx context.Context, args []string) error {
+			executor := &RealCommandExecutor{}
+			return executeBroadcast(ctx, args, executor)
+		},
 	}
 )
 
-func executeBroadcast(ctx context.Context, args []string) error {
+func executeBroadcast(ctx context.Context, args []string, executor CommandExecutor) error {
 	if len(args) == 0 {
 		return fmt.Errorf("message argument is required")
 	}
@@ -56,12 +73,11 @@ func executeBroadcast(ctx context.Context, args []string) error {
 		fmt.Printf("\n=== %s ===\n", session)
 
 		// Send the message to the agent window
-		sendKeysCmd := exec.Command("tmux", "send-keys", "-t", session+":agent", message, "Enter")
-		if err := sendKeysCmd.Run(); err != nil {
+		if err := executor.Execute("tmux", "send-keys", "-t", session+":agent", message, "Enter"); err != nil {
 			log.Error("Failed to send message to session", "session", session, "error", err)
 			continue
 		}
-		exec.Command("tmux", "send-keys", "-t", session+":agent", "Enter").Run()
+		executor.Execute("tmux", "send-keys", "-t", session+":agent", "Enter")
 	}
 
 	return nil

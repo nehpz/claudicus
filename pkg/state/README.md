@@ -101,6 +101,7 @@ For example: `agent-myproject-abc123-claude` → `claude`
 ## Error Handling
 
 The reader follows the "nail it before we scale it" principle:
+
 - Returns empty results for missing files rather than erroring
 - Continues processing other sessions if one fails
 - Lets git handle worktree and diff errors naturally
@@ -125,6 +126,7 @@ See the `examples/state_reader/` directory for complete working examples:
 ## Future Enhancements
 
 Potential improvements that could be added later:
+
 - Repository filtering based on git remote URL
 - Caching for improved performance
 - Watch mode for real-time updates

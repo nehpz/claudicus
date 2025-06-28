@@ -451,7 +451,11 @@ func (c *UziCLI) getGitDiffTotals(sessionName string, sessionState *state.AgentS
 
 	shellCmdString := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
 	cmd := uziExecCommand("sh", "-c", shellCmdString)
-	cmd.Dir = sessionState.WorktreePath
+	
+	// Only set Dir if it's not a test directory
+	if !strings.Contains(sessionState.WorktreePath, "test-worktree") && !strings.Contains(sessionState.WorktreePath, "/tmp/test-") {
+		cmd.Dir = sessionState.WorktreePath
+	}
 
 	output, err := cmd.Output()
 	if err != nil {

@@ -1,7 +1,7 @@
 
 # AI Code Review Rubric
 
-_Last updated: 2025-06-25_
+**Last updated: 2025-06-25**
 
 Use this rubric to evaluate each AI‑generated code file.  
 Score **each category 0‑5** using the descriptors, multiply by the weight, then sum for a final _0‑5_ total.  
@@ -15,18 +15,18 @@ Files scoring **< 3 in Functionality** **or** **< 2 in Testing** are auto‑
 | **4** | **Design Principles (SOLID/DRY)** | **10 %** | Strong SRP, minimal duplication, extensible | Minor duplication/tight coupling | Mostly OK; some smells | Noticeable duplication/rigid | Repeated violations | No discernible design |
 | **5** | **Project Standards Adherence** | **10 %** | Perfectly matches patterns; reuses libs/utils | Tiny deviations fixable by lint | Acceptable; several inconsistencies | Ignores many conventions | Contradicts core conventions | Breaks build/lints |
 
-### Grade Bands
+## Grade Bands
 
-| Total (0‑5) | Action |
-|-------------|--------|
-| **≥ 4.5** | **KEEP** outright |
-| **4.0 – 4.49** | Keep; minor cleanup OK |
-| **3.0 – 3.99** | Keep *only* if no higher file; list required fixes |
-| **< 3.0** | **DISCARD** |
+|| Total (0‑5) | Action |
+||-------------|--------|
+|| **≥ 4.5** | **KEEP** outright |
+|| **4.0 – 4.49** | Keep; minor cleanup OK |
+|| **3.0 – 3.99** | Keep *only* if no higher file; list required fixes |
+|| **< 3.0** | **DISCARD** |
 
 ### Example Evaluation (partial)
 
-```
+```text
 File: user_service.ts
 Category | W | S | W·S
 1 (Func)        |0.40|4|1.60

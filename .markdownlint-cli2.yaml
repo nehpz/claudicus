@@ -1,0 +1,16 @@
+config:
+  # Extend line length for documentation readability
+  MD013:
+    line_length: 120
+    
+  # Allow multiple consecutive blank lines in certain cases
+  MD012: false
+  
+  # Allow emphasis for highlighted text (not just headings)
+  MD036: false
+  
+  # Allow trailing spaces for line breaks
+  MD009: false
+  
+  # Allow emphasis style mixing for specific formatting needs
+  MD049: false

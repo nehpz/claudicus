@@ -443,7 +443,8 @@ func TestUziCLI_GetSessionsLegacy_BehaviorParity(t *testing.T) {
 				if tt.stateFile != "" {
 					mockStateManager.statePath = tt.stateFile
 				}
-				// Skip legacy method tests for now - requires proper state manager interface
+				// Set up the mock state manager
+				cli.stateManager = mockStateManager
 
 				// Mock tmux/git commands for git diff functionality
 				mockTmuxAndGitCommands()
@@ -476,14 +477,12 @@ func TestUziCLI_GetSessionsLegacy_BehaviorParity(t *testing.T) {
 // Git Diff Parsing Tests - Table-driven with edge cases
 
 func TestUziCLI_GetGitDiffTotals_EdgeCases(t *testing.T) {
-	setupUziTest()
-	
 	testCases := []struct {
-		name           string
-		diffOutput     string
-		expectedIns    int
-		expectedDel    int
-		description    string
+		name        string
+		diffOutput  string
+		expectedIns int
+		expectedDel int
+		description string
 	}{
 		{
 			name:        "Normal diff output",
@@ -525,7 +524,7 @@ func TestUziCLI_GetGitDiffTotals_EdgeCases(t *testing.T) {
 			diffOutput:  "",
 			expectedIns: 0,
 			expectedDel: 0,
-			description: "Empty diff output",
+			description: "Empty git diff output",
 		},
 		{
 			name:        "Large diff",
@@ -559,6 +558,9 @@ func TestUziCLI_GetGitDiffTotals_EdgeCases(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			// Fresh setup for each test case
+			setupUziTest() // This calls cmdmock.Reset() and cmdmock.Enable()
+			
 			cli := NewUziCLI()
 			
 			// Create a test session state
@@ -566,10 +568,19 @@ func TestUziCLI_GetGitDiffTotals_EdgeCases(t *testing.T) {
 				WorktreePath: "/tmp/test-worktree",
 			}
 
-			// Mock the git command with the test case output
+			// Mock the exact command that getGitDiffTotals will execute
 			gitCmd := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
-			cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd}, 
-				tc.diffOutput, "", false)
+			cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd}, tc.diffOutput, "", false)
+
+			// Verify the mock was set up correctly by testing the command directly
+			testCmd := uziExecCommand("sh", "-c", gitCmd)
+			testOutput, testErr := testCmd.Output()
+			if testErr != nil {
+				t.Fatalf("Mock setup failed: %v", testErr)
+			}
+			if string(testOutput) != tc.diffOutput {
+				t.Fatalf("Mock setup returned wrong output: expected %q, got %q", tc.diffOutput, string(testOutput))
+			}
 
 			insertions, deletions := cli.getGitDiffTotals("test-session", sessionState)
 

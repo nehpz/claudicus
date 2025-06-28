@@ -105,6 +105,7 @@ func TestTimeDependent(t *testing.T) {
 To use timefreeze with existing code, replace direct `time.Now()` calls with a variable:
 
 **Production code:**
+
 ```go
 // In your package
 var timeNow = time.Now
@@ -117,6 +118,7 @@ func processWithTimeout() {
 ```
 
 **Test code:**
+
 ```go
 func TestProcessWithTimeout(t *testing.T) {
     freeze := timefreeze.New(t)
@@ -283,7 +285,8 @@ func TestSessionMonitoring(t *testing.T) {
 
 If you have existing tests that manually create temp directories or deal with time:
 
-### Before (manual temp dirs):
+### Before (manual temp dirs)
+
 ```go
 func TestOld(t *testing.T) {
     tmpDir, err := os.MkdirTemp("", "test-*")
@@ -296,7 +299,8 @@ func TestOld(t *testing.T) {
 }
 ```
 
-### After (with fsmock):
+### After (with fsmock)
+
 ```go
 func TestNew(t *testing.T) {
     fs := fsmock.NewTempFS(t)
@@ -308,7 +312,8 @@ func TestNew(t *testing.T) {
 }
 ```
 
-### Before (time-dependent tests):
+### Before (time-dependent tests)
+
 ```go
 func TestTimeOld(t *testing.T) {
     start := time.Now()
@@ -319,7 +324,8 @@ func TestTimeOld(t *testing.T) {
 }
 ```
 
-### After (with timefreeze):
+### After (with timefreeze)
+
 ```go
 func TestTimeNew(t *testing.T) {
     freeze := timefreeze.New(t)

@@ -318,6 +318,7 @@ require (
 5. **Config UI**: Edit uzi.yaml from TUI
 
 ## Development Guidelines
+
 1. **Minimal Changes to Uzi Core**: All changes in new `tui/` package
 2. **Preserve Uzi Philosophy**: Keep it simple and fast
 3. **Reuse Existing Code**: Don't reimplement Uzi logic
@@ -355,6 +356,7 @@ git merge upstream/main  # Should be conflict-free!
 Only TWO changes to existing Uzi files:
 
 1. **uzi.go** - Add TUI command:
+
 ```go
 subcommands = append(subcommands, tui.CmdTUI)
 ```
@@ -362,6 +364,7 @@ subcommands = append(subcommands, tui.CmdTUI)
 2. **go.mod** - Add Bubble Tea dependencies
 
 That's it! Everything else is isolated in the TUI package.
+
 ## Estimated Timeline
 
 - **Week 1**: Basic TUI with session display

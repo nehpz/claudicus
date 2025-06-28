@@ -21,6 +21,7 @@ type TmuxDiscovery struct {
 ```
 
 **Key Features:**
+
 - Caches results for 2 seconds to avoid excessive tmux calls
 - Discovers all tmux sessions using `tmux list-sessions`
 - Parses window names and session metadata
@@ -93,6 +94,7 @@ type SessionListItem struct {
 ```
 
 **Visual Indicators:**
+
 - 🔗 - Session is currently attached
 - ● - Session is active (recent activity)
 - ○ - Session is inactive
