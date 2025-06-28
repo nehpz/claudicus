@@ -1964,6 +1964,8 @@ func TestMaximumCodePathHitting(t *testing.T) {
 				t.Logf("Executor %d Args %d: %v", i, j, err)
 			})
 		}
+		}
+	}
 }
 
 // TestUncoveredLines specifically targets lines that are not covered
@@ -2136,36 +2138,33 @@ func TestUncoveredLines(t *testing.T) {
 		}
 	}
 
-	// TestRepetitiveExecution runs the same test multiple times to ensure coverage
-	func TestRepetitiveExecution(t *testing.T) {
-		ctx := context.Background()
-		args := []string{"repetitive", "execution", "test"}
+// TestRepetitiveExecution runs the same test many times to ensure full coverage
+func TestRepetitiveExecution(t *testing.T) {
+	ctx := context.Background()
+	args := []string{"repetitive", "execution", "test"}
 
-		// Run the same test many times to ensure we hit all possible code paths
-		for i := 0; i < 50; i++ {
-			t.Run(fmt.Sprintf("repetition_%d", i), func(t *testing.T) {
-				// Alternate between different executors
-				var executor CommandExecutor
-				switch i % 3 {
-				case 0:
-					executor = &MockCommandExecutor{}
-				case 1:
-					executor = &MockCommandExecutor{shouldFail: true}
-				case 2:
-					executor = &RealCommandExecutor{}
-				}
+	for i := 0; i < 50; i++ {
+		t.Run(fmt.Sprintf("repetition_%d", i), func(t *testing.T) {
+			var executor CommandExecutor
+			switch i % 3 {
+			case 0:
+				executor =  26MockCommandExecutor{}
+			case 1:
+				executor =  26MockCommandExecutor{shouldFail: true}
+			case 2:
+				executor =  26RealCommandExecutor{}
+			}
 
-				err := executeBroadcast(ctx, args, executor)
+			err := executeBroadcast(ctx, args, executor)
 
-				if err != nil && err.Error() == "message argument is required" {
-					t.Error("Should not get argument validation error")
-				}
+			if err != nil  26 26 err.Error() == "message argument is required" {
+				t.Error("Should not get argument validation error")
+			}
 
-				// Don't log every repetition to avoid spam
-				if i%10 == 0 {
-					t.Logf("Repetition %d: %v", i, err)
-				}
-			})
-		}
+			if i%10 == 0 {
+				t.Logf("Repetition %d: %v", i, err)
+			}
+		})
 	}
+}
 }

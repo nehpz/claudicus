@@ -256,6 +256,15 @@ func (r *Require) Equal(expected, actual interface{}, msgAndArgs ...interface{})
 	}
 }
 
+// NotEqual asserts that two values are not equal
+func (r *Require) NotEqual(expected, actual interface{}, msgAndArgs ...interface{}) {
+	r.t.Helper()
+	if expected == actual {
+		r.t.Errorf("Expected values to be different, but both were %v %v", expected, msgAndArgs)
+		r.t.FailNow()
+	}
+}
+
 // NotNil asserts that value is not nil
 func (r *Require) NotNil(value interface{}, msgAndArgs ...interface{}) {
 	r.t.Helper()
@@ -290,4 +299,16 @@ func (r *Require) False(value bool, msgAndArgs ...interface{}) {
 		r.t.Errorf("Expected false, got true %v", msgAndArgs)
 		r.t.FailNow()
 	}
+}
+
+// NotPanics asserts that the provided function does not panic
+func (r *Require) NotPanics(f func(), msgAndArgs ...interface{}) {
+	r.t.Helper()
+	defer func() {
+		if recover() != nil {
+			r.t.Errorf("Expected function not to panic %v", msgAndArgs)
+			r.t.FailNow()
+		}
+	}()
+	f()
 }
