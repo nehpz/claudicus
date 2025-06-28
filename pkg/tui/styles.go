@@ -34,6 +34,13 @@ var (
 	ClaudeSquadBaseStyle = lipgloss.NewStyle().
 		Foreground(ClaudeSquadPrimary).
 		Background(ClaudeSquadDark)
+
+	// Warning and error styles
+	WarningStyle = lipgloss.NewStyle().
+		Foreground(WarningColor)
+
+	ErrorStyle = lipgloss.NewStyle().
+		Foreground(ErrorColor)
 	
 	// Primary accent styling (Claude Squad green)
 	ClaudeSquadAccentStyle = ClaudeSquadBaseStyle.Copy().

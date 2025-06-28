@@ -17,6 +17,30 @@
       "disabled": true,
       "alwaysAllow": []
     },
+    "serena": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "--network",
+        "host",
+        "-v",
+        "/Users/stephen/Projects",
+        "ghcr.io/oraios/serena:latest",
+        "serena-mcp-server",
+        "--transport",
+        "stdio",
+        "--context",
+        "agent",
+        "--mode",
+        "no-onboarding",
+        "--mode",
+        "planning",
+        "--mode",
+        "one-shot"
+      ]
+    },
     "conport": {
       "type": "stdio",
       "command": "/Users/stephen/Projects/MCP/context-portal/.venv/bin/python",
@@ -86,6 +110,12 @@
       "env": {},
       "disabled": true,
       "alwaysAllow": []
+    },
+    "gitkraken": {
+      "command": "gk",
+      "args": [
+        "mcp"
+      ]
     },
     "supabase": {
       "command": "npx",

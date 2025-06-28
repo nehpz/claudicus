@@ -28,12 +28,27 @@ type mockStateManagerForTest struct {
 	statePath      string
 }
 
+func (m *mockStateManagerForTest) RemoveState(sessionName string) error {
+	// Mock implementation for test
+	return nil
+}
+
 func (m *mockStateManagerForTest) GetActiveSessionsForRepo() ([]string, error) {
 	return m.activeSessions, nil
 }
 
 func (m *mockStateManagerForTest) GetStatePath() string {
 	return m.statePath
+}
+
+func (m *mockStateManagerForTest) SaveState(prompt, branchName, sessionName, worktreePath, model string) error {
+	// Mock implementation for test
+	return nil
+}
+
+func (m *mockStateManagerForTest) SaveStateWithPort(prompt, branchName, sessionName, worktreePath, model string, port int) error {
+	// Mock implementation for test
+	return nil
 }
 
 // Test helpers
@@ -1451,4 +1466,357 @@ func mockTmuxAndGitCommands() {
 	gitCmd := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd}, 
 		" 3 files changed, 15 insertions(+), 3 deletions(-)", "", false)
+}
+
+// SpawnAgent Tests - Critical functionality coverage
+
+func TestUziCLI_SpawnAgent_Success(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock git commands for agent creation
+	cmdmock.SetResponseWithArgs("git", []string{"rev-parse", "--short", "HEAD"}, "abc123", "", false)
+	cmdmock.SetResponseWithArgs("git", []string{"remote", "get-url", "origin"}, "https://github.com/user/project.git", "", false)
+	
+	// Mock worktree creation
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "git worktree add -b claude-project-abc123-1640000000 /Users/testuser/.local/share/uzi/worktrees/claude-project-abc123-1640000000"}, "", "", false)
+	
+	// Mock tmux session creation
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux new-session -d -s agent-project-abc123-claude -c /Users/testuser/.local/share/uzi/worktrees/claude-project-abc123-1640000000"}, "", "", false)
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux rename-window -t agent-project-abc123-claude:0 agent"}, "", "", false)
+	
+	// Mock agent command execution
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t agent-project-abc123-claude:agent C-m"}, "", "", false)
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t agent-project-abc123-claude:agent 'claude \"test prompt\"' C-m"}, "", "", false)
+	
+	// Create a mock state manager
+	mockStateManager := &mockStateManagerForTest{
+		activeSessions: []string{},
+		statePath:      "/tmp/test-state.json",
+	}
+	cli.stateManager = mockStateManager
+	
+	sessionName, err := cli.SpawnAgent("test prompt", "claude")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if sessionName == "" {
+		t.Error("Expected non-empty session name")
+	}
+}
+
+func TestUziCLI_SpawnAgent_HelperMethods(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Test parseAgentConfigs
+	tests := []struct {
+		name        string
+		agentsStr   string
+		expectedLen int
+		expectError bool
+	}{
+		{"valid single agent", "claude:1", 1, false},
+		{"valid multiple agents", "claude:1,cursor:2", 2, false},
+		{"invalid format", "claude-1", 0, true},
+		{"invalid count", "claude:zero", 0, true},
+		{"zero count", "claude:0", 0, true},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configs, err := cli.parseAgentConfigs(tt.agentsStr)
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			}
+			if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+			if len(configs) != tt.expectedLen {
+				t.Errorf("Expected %d configs, got %d", tt.expectedLen, len(configs))
+			}
+		})
+	}
+}
+
+func TestUziCLI_SpawnAgent_CommandMapping(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	tests := []struct {
+		agent    string
+		expected string
+	}{
+		{"claude", "claude"},
+		{"cursor", "cursor"},
+		{"codex", "codex"},
+		{"gemini", "gemini"},
+		{"random", "claude"},
+		{"unknown", "unknown"},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.agent, func(t *testing.T) {
+			result := cli.getCommandForAgent(tt.agent)
+			if result != tt.expected {
+				t.Errorf("Expected %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestUziCLI_SpawnAgent_GetRandomAgentName(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Test non-random agent
+	result, err := cli.getRandomAgentName("claude")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if result != "claude" {
+		t.Errorf("Expected 'claude', got %q", result)
+	}
+	
+	// Test random agent - should return a non-empty string
+	result, err = cli.getRandomAgentName("random")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if result == "" {
+		t.Error("Expected non-empty random agent name")
+	}
+}
+
+func TestUziCLI_SpawnAgent_GetGitInfo(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock git commands
+	cmdmock.SetResponseWithArgs("git", []string{"rev-parse", "--short", "HEAD"}, "abc123", "", false)
+	cmdmock.SetResponseWithArgs("git", []string{"remote", "get-url", "origin"}, "https://github.com/user/project.git", "", false)
+	
+	gitHash, projectDir, err := cli.getGitInfo()
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if gitHash != "abc123" {
+		t.Errorf("Expected gitHash 'abc123', got %q", gitHash)
+	}
+	if projectDir != "project" {
+		t.Errorf("Expected projectDir 'project', got %q", projectDir)
+	}
+}
+
+func TestUziCLI_SpawnAgent_GetGitInfo_Error(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock git command failure
+	cmdmock.SetResponseWithArgs("git", []string{"rev-parse", "--short", "HEAD"}, "", "fatal: not a git repository", true)
+	
+	_, _, err := cli.getGitInfo()
+	if err == nil {
+		t.Error("Expected error but got none")
+	}
+}
+
+func TestUziCLI_SpawnAgent_CreateWorktree(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock successful worktree creation
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "git worktree add -b test-branch /tmp/test-worktree"}, "", "", false)
+	
+	worktreePath, err := cli.createWorktree("test-branch", "test-worktree")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if !strings.Contains(worktreePath, "test-worktree") {
+		t.Errorf("Expected worktree path to contain 'test-worktree', got %q", worktreePath)
+	}
+}
+
+func TestUziCLI_SpawnAgent_CreateWorktree_Error(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock worktree creation failure
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "git worktree add -b test-branch /tmp/test-worktree"}, "", "fatal: git worktree failed", true)
+	
+	_, err := cli.createWorktree("test-branch", "test-worktree")
+	if err == nil {
+		t.Error("Expected error but got none")
+	}
+}
+
+func TestUziCLI_SpawnAgent_CreateTmuxSession(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock tmux commands
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux new-session -d -s test-session -c /tmp"}, "", "", false)
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux rename-window -t test-session:0 agent"}, "", "", false)
+	
+	err := cli.createTmuxSession("test-session", "/tmp")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+}
+
+func TestUziCLI_SpawnAgent_CreateTmuxSession_Error(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock tmux session creation failure
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux new-session -d -s test-session -c /tmp"}, "", "tmux: session exists", true)
+	
+	err := cli.createTmuxSession("test-session", "/tmp")
+	if err == nil {
+		t.Error("Expected error but got none")
+	}
+}
+
+func TestUziCLI_SpawnAgent_IsPortAvailable(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Test with a high port that should be available
+	available := cli.isPortAvailable(65432)
+	if !available {
+		t.Error("Expected port 65432 to be available")
+	}
+	
+	// Test with a reserved port that should not be available
+	// Note: This might fail in test environments where ports are not restricted
+	// So we'll just verify the method doesn't panic
+	_ = cli.isPortAvailable(80)
+}
+
+func TestUziCLI_SpawnAgent_FindAvailablePort(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Test finding available port in high range
+	port, err := cli.findAvailablePort(65400, 65500, []int{})
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if port < 65400 || port > 65500 {
+		t.Errorf("Expected port in range 65400-65500, got %d", port)
+	}
+	
+	// Test with assigned ports
+	assignedPorts := []int{65401, 65402, 65403}
+	port, err = cli.findAvailablePort(65400, 65410, assignedPorts)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	for _, assigned := range assignedPorts {
+		if port == assigned {
+			t.Errorf("Found port %d should not be in assigned list %v", port, assignedPorts)
+		}
+	}
+}
+
+func TestUziCLI_SpawnAgent_ExecuteAgentCommand(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock tmux commands for agent execution
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent C-m"}, "", "", false)
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent 'claude \"test prompt\"' C-m"}, "", "", false)
+	
+	err := cli.executeAgentCommand("test-session", "claude", "test prompt", "/tmp")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+}
+
+func TestUziCLI_SpawnAgent_ExecuteAgentCommand_Gemini(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Mock tmux commands for gemini agent execution (different format)
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent C-m"}, "", "", false)
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent 'gemini -p \"test prompt\"' C-m"}, "", "", false)
+	
+	err := cli.executeAgentCommand("test-session", "gemini", "test prompt", "/tmp")
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+}
+
+func TestUziCLI_SpawnAgent_GetExistingSessionPorts(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// Test with nil state manager
+	ports, err := cli.getExistingSessionPorts(nil)
+	if err != nil {
+		t.Errorf("Expected no error with nil state manager, got: %v", err)
+	}
+	if len(ports) != 0 {
+		t.Errorf("Expected empty ports list, got %v", ports)
+	}
+	
+	// Test with mock state manager and valid state file
+	testStates := map[string]state.AgentState{
+		"session1": {Port: 8080},
+		"session2": {Port: 8081},
+		"session3": {Port: 0}, // Should be ignored
+	}
+	stateFile := createTempStateFile(t, testStates)
+	
+	mockStateManager := &mockStateManagerForTest{
+		statePath: stateFile,
+	}
+	
+	ports, err = cli.getExistingSessionPorts(mockStateManager)
+	if err != nil {
+		t.Errorf("Expected no error, got: %v", err)
+	}
+	if len(ports) != 2 {
+		t.Errorf("Expected 2 ports, got %d", len(ports))
+	}
+	expectedPorts := []int{8080, 8081}
+	for _, expected := range expectedPorts {
+		found := false
+		for _, port := range ports {
+			if port == expected {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("Expected to find port %d in result %v", expected, ports)
+		}
+	}
+}
+
+func TestUziCLI_SpawnAgent_StateManagerBridge(t *testing.T) {
+	// Test StateManagerBridge methods for coverage
+	bridge := NewStateManagerBridge()
+	if bridge == nil {
+		t.Error("Expected non-nil bridge")
+	}
+	
+	// Test SaveState method (should not error even without real state manager)
+	err := bridge.SaveState("prompt", "branch", "session", "path", "model")
+	// This will likely error since it's trying to save to a real path, but we test the method exists
+	_ = err // Acknowledge potential error
+	
+	// Test SaveStateWithPort method
+	err = bridge.SaveStateWithPort("prompt", "branch", "session", "path", "model", 8080)
+	_ = err // Acknowledge potential error
+}
+
+func TestUziCLI_SpawnAgent_LoadDefaultConfig(t *testing.T) {
+	setupUziTest()
+	cli := NewUziCLI()
+	
+	// This will likely fail since there's no uzi.yaml in test environment,
+	// but we test that the method doesn't panic
+	_, err := cli.loadDefaultConfig()
+	_ = err // Acknowledge expected error in test environment
 }

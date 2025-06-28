@@ -4,11 +4,14 @@
 package tui
 
 import (
+	"context"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/nehpz/claudicus/pkg/activity"
 )
 
 // RefreshMsg is sent by the ticker to refresh sessions without clearing screen
@@ -19,16 +22,20 @@ type TickMsg time.Time
 
 // App represents the main TUI application
 type App struct {
-	uzi           UziInterface
-	list          *ListModel
-	diffPreview   *DiffPreviewModel
-	broadcastInput *BroadcastInputModel
-	keys          KeyMap
-	ticker        *time.Ticker
-	width         int
-	height        int
-	loading       bool
-	splitView     bool // Toggle between list-only and split view
+	uzi             UziInterface
+	list            *ListModel
+	diffPreview     *DiffPreviewModel
+	broadcastInput   *BroadcastInputModel
+	confirmModal    *ConfirmationModal
+	keys            KeyMap
+	ticker          *time.Ticker
+	activityMonitor *activity.AgentActivityMonitor
+	monitorCtx      context.Context
+	monitorCancel   context.CancelFunc
+	width           int
+	height          int
+	loading         bool
+	splitView       bool // Toggle between list-only and split view
 }
 
 // NewApp creates a new TUI application instance
@@ -37,16 +44,32 @@ func NewApp(uzi UziInterface) *App {
 	list := NewListModel(80, 24) // Default size, will be updated on first render
 	diffPreview := NewDiffPreviewModel(40, 24) // Default size, will be updated on first render
 	broadcastInput := NewBroadcastInputModel()
+	confirmModal := NewConfirmationModal()
+	
+	activityMonitor := activity.NewAgentActivityMonitor()
+	// Create context for the monitor with cancellation
+	monitorCtx, monitorCancel := context.WithCancel(context.Background())
+	
+	// Start the activity monitor
+	err := activityMonitor.Start(monitorCtx)
+	if err != nil {
+		// Log error but don't panic, allow app to work without monitor
+		monitorCancel()
+	}
 	
 	return &App{
-		uzi:           uzi,
-		list:          &list,
-		diffPreview:   diffPreview,
-		broadcastInput: broadcastInput,
-		keys:          DefaultKeyMap(),
-		ticker:        nil, // Will be created in Init
-		loading:     true,
-		splitView:   false, // Start in list view
+		uzi:             uzi,
+		list:            &list,
+		diffPreview:     diffPreview,
+		broadcastInput:  broadcastInput,
+		confirmModal:    confirmModal,
+		keys:            DefaultKeyMap(),
+		ticker:          nil, // Will be created in Init
+		activityMonitor: activityMonitor,
+		monitorCtx:      monitorCtx,
+		monitorCancel:   monitorCancel,
+		loading:         true,
+		splitView:       false, // Start in list view
 	}
 }
 
@@ -67,11 +90,29 @@ func (a *App) refreshSessions() tea.Cmd {
 			// In a production app, you might want to handle errors differently
 			return RefreshMsg{}
 		}
-		
+		// Get metrics from activity monitor (safe call - won't block)
+		monitorMetrics := make(map[string]*activity.Metrics)
+		if a.activityMonitor != nil {
+			monitorMetrics = a.activityMonitor.UpdateAll()
+		}
+
+		// Merge monitor metrics into sessions (create new slice to avoid mutation)
+		updatedSessions := make([]SessionInfo, len(sessions))
+		copy(updatedSessions, sessions)
+		for i, session := range updatedSessions {
+			if metrics, exists := monitorMetrics[session.Name]; exists {
+				updatedSessions[i].Insertions = metrics.Insertions
+				updatedSessions[i].Deletions = metrics.Deletions
+				// Map activity status to session status
+				updatedSessions[i].Status = string(metrics.Status)
+			}
+		}
+		sessions = updatedSessions
+
 		// Update the list with new sessions
 		a.list.LoadSessions(sessions)
 		a.loading = false
-		
+
 		return RefreshMsg{}
 	}
 }
@@ -91,6 +132,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle confirmation modal when visible
+		if a.confirmModal != nil && a.confirmModal.IsVisible() {
+			var modalCmd tea.Cmd
+			a.confirmModal, modalCmd = a.confirmModal.Update(msg)
+			return a, modalCmd
+		}
+		
 		// Handle broadcast input when active
 		if a.broadcastInput.IsActive() {
 			switch {
@@ -162,24 +210,41 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			
 		case key.Matches(msg, a.keys.Kill):
-			// Handle agent kill command
+			// Show confirmation modal for kill command
 			if selected := a.list.SelectedSession(); selected != nil {
-				// Kill the selected agent session
-				return a, func() tea.Msg {
-					err := a.uzi.KillSession(selected.Name)
-					if err != nil {
-						// Handle error - for now just continue
-						return nil
-					}
-					// Refresh sessions after kill
-					return RefreshMsg{}
-				}
+				// Extract agent name from session name for fat-finger protection
+				agentName := extractAgentName(selected.Name)
+				a.confirmModal.SetRequiredAgentName(agentName)
+				a.confirmModal.SetVisible(true)
+				return a, nil
 			}
 			
 		case key.Matches(msg, a.keys.Broadcast):
 			// Activate broadcast input prompt
 			a.broadcastInput.SetActive(true)
 			a.broadcastInput.SetWidth(a.width)
+			return a, nil
+			
+		case key.Matches(msg, a.keys.ToggleCommits):
+			// Toggle commits view in diff preview (only when in split view)
+			if a.splitView {
+				a.diffPreview.ToggleView()
+			}
+			return a, nil
+			
+		case key.Matches(msg, a.keys.FilterStuck):
+			// Toggle stuck agents filter
+			a.list.ToggleStuckFilter()
+			return a, nil
+			
+		case key.Matches(msg, a.keys.FilterWorking):
+			// Set working agents filter
+			a.list.SetWorkingFilter()
+			return a, nil
+			
+		case key.Matches(msg, a.keys.Clear):
+			// Clear any active filter
+			a.list.ClearFilter()
 			return a, nil
 		}
 		
@@ -257,7 +322,55 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The list has already been updated in refreshSessions()
 		return a, nil
 		
+	case ModalMsg:
+		// Handle confirmation modal response
+		if msg.Confirmed {
+			if selected := a.list.SelectedSession(); selected != nil {
+				return a, func() tea.Msg {
+					// Step 1: Kill the session
+					err := a.uzi.KillSession(selected.Name)
+					if err != nil {
+						// Handle error - for now just continue
+						return RefreshMsg{}
+					}
+					
+					// Step 2: Remove worktree state if this is a kill & replace
+					if msg.SpawnReplacement {
+						// Get state manager and remove state
+						if stateManager := getStateManager(); stateManager != nil {
+							if err := stateManager.RemoveState(selected.Name); err != nil {
+								// Log error but continue
+							}
+						}
+						
+						// Step 3: Spawn replacement agent
+						newSessionName, err := a.uzi.SpawnAgent(msg.Prompt, msg.Model)
+						if err != nil {
+							// Handle spawn error - for now just continue
+							return RefreshMsg{}
+						}
+						
+						// Step 4: Add new session to state
+						// The SpawnAgent call should have already handled this via RunPrompt
+						_ = newSessionName // Session is now tracked automatically
+					}
+					
+					// Refresh sessions to show updated list
+					return RefreshMsg{}
+				}
+			}
+		}
+		// If not confirmed, just continue - modal is already hidden
+		return a, nil
+		
 	default:
+		// Update confirmation modal
+		if a.confirmModal != nil {
+			var modalCmd tea.Cmd
+			a.confirmModal, modalCmd = a.confirmModal.Update(msg)
+			cmds = append(cmds, modalCmd)
+		}
+		
 		// Delegate other messages to appropriate components
 		var cmd tea.Cmd
 		model, cmd := a.list.Update(msg)
@@ -303,9 +416,20 @@ func (a *App) View() string {
 		// List view: delegate to the list view for rendering
 		listView := a.list.View()
 		
-		// Add a subtle status line if loading
+		// Add status lines
+		var statusLines []string
+		
 		if a.loading {
-			statusLine := ClaudeSquadMutedStyle.Render("Refreshing sessions...")
+			statusLines = append(statusLines, ClaudeSquadMutedStyle.Render("Refreshing sessions..."))
+		}
+		
+		// Add filter status if active
+		if filterStatus := a.list.GetFilterStatus(); filterStatus != "" {
+			statusLines = append(statusLines, ClaudeSquadAccentStyle.Render(filterStatus))
+		}
+		
+		if len(statusLines) > 0 {
+			statusLine := strings.Join(statusLines, " │ ")
 			listView = listView + "\n" + statusLine
 		}
 		
@@ -315,6 +439,29 @@ func (a *App) View() string {
 			listView = lipgloss.JoinVertical(lipgloss.Left, listView, broadcastView)
 		}
 		
-		return listView
+		// Add confirmation modal if visible
+		if a.confirmModal != nil && a.confirmModal.IsVisible() {
+			modalView := a.confirmModal.View()
+			listView = lipgloss.JoinVertical(lipgloss.Left, listView, modalView)
+		}
+		
+	return listView
 	}
 }
+
+// Cleanup stops the activity monitor and releases resources
+func (a *App) Cleanup() {
+	if a.activityMonitor != nil {
+		a.activityMonitor.Stop()
+	}
+	if a.monitorCancel != nil {
+		a.monitorCancel()
+	}
+}
+
+// getStateManager returns a state manager instance for worktree operations
+func getStateManager() StateManagerInterface {
+	// Create a new StateManagerBridge instance
+	return NewStateManagerBridge()
+}
+

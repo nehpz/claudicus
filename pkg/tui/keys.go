@@ -24,6 +24,9 @@ type KeyMap struct {
 	// Agent management keys
 	Broadcast key.Binding  // Broadcast message to agents
 	
+	// Diff preview keys
+	ToggleCommits key.Binding // Toggle between diff and commits/files view
+	
 	// Application actions
 	Help    key.Binding
 	Quit    key.Binding
@@ -32,6 +35,9 @@ type KeyMap struct {
 	// List specific keys
 	Filter key.Binding
 	Clear  key.Binding
+	// Agent filtering keys
+	FilterStuck   key.Binding  // Toggle stuck agents filter
+	FilterWorking key.Binding  // Filter working agents
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -75,6 +81,12 @@ func DefaultKeyMap() KeyMap {
 			key.WithHelp("b", "broadcast message"),
 		),
 		
+		// Diff preview
+		ToggleCommits: key.NewBinding(
+			key.WithKeys("v"),
+			key.WithHelp("v", "toggle commits view"),
+		),
+		
 		// Application
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
@@ -102,6 +114,16 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("c"),
 			key.WithHelp("c", "clear filter"),
 		),
+		
+		// Agent filtering
+		FilterStuck: key.NewBinding(
+			key.WithKeys("f"),
+			key.WithHelp("f", "toggle stuck agents filter"),
+		),
+		FilterWorking: key.NewBinding(
+			key.WithKeys("w"),
+			key.WithHelp("w", "filter working agents"),
+		),
 	}
 }
 
@@ -112,11 +134,13 @@ func (k KeyMap) ShortHelp() []key.Binding {
 
 // FullHelp returns keybindings for the expanded help view
 func (k KeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.Up, k.Down, k.Left, k.Right}, // Navigation
-		{k.Enter, k.Escape, k.Refresh, k.Kill},  // Actions
-		{k.Filter, k.Clear, k.Help, k.Quit}, // Application
-	}
+		return [][]key.Binding{
+			{k.Up, k.Down, k.Left, k.Right}, // Navigation
+			{k.Enter, k.Escape, k.Refresh, k.Kill},  // Actions
+			{k.Tab, k.ToggleCommits, k.Broadcast}, // Views & Agent management
+			{k.Filter, k.Clear, k.FilterStuck, k.FilterWorking}, // Filtering
+			{k.Help, k.Quit}, // Application
+		}
 }
 
 // CursorState represents the cursor position in a list

@@ -3,3 +3,4 @@ claudicus
 .serena/
 logs/
 TEST_SUMMARY.md
+*.out

@@ -6,9 +6,11 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // SessionListItem represents a session in the TUI list with Claude Squad styling
@@ -25,19 +27,21 @@ func NewSessionListItem(session SessionInfo) SessionListItem {
 
 // Title implements list.Item interface for sessions
 func (s SessionListItem) Title() string {
-	// Get status icon using Claude Squad styling
+	// Get status icon and activity bar using Claude Squad styling
 	statusIcon := s.formatStatusIcon(s.session.Status)
+	activityBar := s.formatActivityBar()
 	
-	// Format: [●] agent-name (model)
-	return fmt.Sprintf("%s %s %s", 
+	// Format: [●] ▮▮▮ agent-name (model)
+	return fmt.Sprintf("%s %s %s %s", 
 		statusIcon,
+		activityBar,
 		s.session.AgentName,
 		ClaudeSquadAccentStyle.Render(fmt.Sprintf("(%s)", s.session.Model)))
 }
 
 // Description implements list.Item interface for sessions
 func (s SessionListItem) Description() string {
-	// Build description with status, diff stats, dev URL, and prompt
+	// Build description with status, diff stats, dev URL, last activity, and prompt
 	var parts []string
 	
 	// Status with Claude Squad colors
@@ -50,6 +54,11 @@ func (s SessionListItem) Description() string {
 		parts = append(parts, ClaudeSquadAccentStyle.Render(diffStats))
 	}
 	
+	// Last activity time with muted styling
+	if lastActivity := s.formatLastActivity(); lastActivity != "" {
+		parts = append(parts, ClaudeSquadMutedStyle.Render(lastActivity))
+	}
+	
 	// Dev server URL with Claude Squad accent
 	if s.session.Port > 0 {
 		devURL := fmt.Sprintf("localhost:%d", s.session.Port)
@@ -58,8 +67,8 @@ func (s SessionListItem) Description() string {
 	
 	// Truncated prompt with muted styling
 	prompt := s.session.Prompt
-	if len(prompt) > 50 {
-		prompt = prompt[:47] + "..."
+	if len(prompt) > 40 { // Reduced to make room for activity time
+		prompt = prompt[:37] + "..."
 	}
 	if prompt != "" {
 		parts = append(parts, ClaudeSquadMutedStyle.Render(prompt))
@@ -105,11 +114,129 @@ func (s SessionListItem) formatStatus(status string) string {
 	}
 }
 
+// getActivityStatus determines activity status based on last update time and diff stats
+func (s SessionListItem) getActivityStatus() string {
+	// Parse UpdatedAt timestamp, try multiple formats
+	lastUpdate, err := time.Parse(time.RFC3339, s.session.UpdatedAt)
+	if err != nil {
+		// Fallback to simpler format
+		if lastUpdate, err = time.Parse("2006-01-02T15:04:05Z", s.session.UpdatedAt); err != nil {
+			// Fallback to CreatedAt if UpdatedAt is invalid
+			if lastUpdate, err = time.Parse(time.RFC3339, s.session.CreatedAt); err != nil {
+				if lastUpdate, err = time.Parse("2006-01-02T15:04:05Z", s.session.CreatedAt); err != nil {
+					return "unknown"
+				}
+			}
+		}
+	}
+	
+	// Calculate time since last activity
+	timeSince := time.Since(lastUpdate)
+	
+	// Activity classification rules:
+	// 1. Recent activity (<=90s) OR has uncommitted changes = working
+	// 2. No activity for >3 minutes AND no diffs = stuck
+	// 3. Everything else = idle
+	
+	// If there are uncommitted changes, agent is working
+	if s.session.Insertions > 0 || s.session.Deletions > 0 {
+		return "working"
+	}
+	
+	// If recent activity (within 90 seconds), agent is working
+	if timeSince <= 90*time.Second {
+		return "working"
+	}
+	
+	// If no activity for >3 minutes and no diffs, agent is stuck
+	if timeSince > 3*time.Minute {
+		return "stuck"
+	}
+	
+	// Otherwise, agent is idle
+	return "idle"
+}
+
+// formatActivityBar returns a colored activity bar (▮▮▯ style)
+func (s SessionListItem) formatActivityBar() string {
+	activityStatus := s.getActivityStatus()
+	
+	switch activityStatus {
+	case "working":
+		// Green activity bar - fully active
+		return ClaudeSquadAccentStyle.Render("▮▮▮")
+	case "idle":
+		// Yellow activity bar - some activity
+		return WarningStyle.Render("▮▮▯")
+	case "stuck":
+		// Red activity bar - no progress
+		return ErrorStyle.Render("▮▯▯")
+	default:
+		// Gray activity bar - unknown status
+		return ClaudeSquadMutedStyle.Render("▯▯▯")
+	}
+}
+
+// formatLastActivity returns a human-readable "time ago" string
+func (s SessionListItem) formatLastActivity() string {
+	// Parse UpdatedAt timestamp
+	lastUpdate, err := time.Parse("2006-01-02T15:04:05Z", s.session.UpdatedAt)
+	if err != nil {
+		// Fallback to CreatedAt if UpdatedAt is invalid
+		if lastUpdate, err = time.Parse("2006-01-02T15:04:05Z", s.session.CreatedAt); err != nil {
+			return ""
+		}
+	}
+	
+	// Calculate time since last activity
+	timeSince := time.Since(lastUpdate)
+	
+	// Format as human-readable duration
+	if timeSince < time.Minute {
+		return fmt.Sprintf("%d s ago", int(timeSince.Seconds()))
+	} else if timeSince < time.Hour {
+		return fmt.Sprintf("%d m ago", int(timeSince.Minutes()))
+	} else if timeSince < 24*time.Hour {
+		return fmt.Sprintf("%d h ago", int(timeSince.Hours()))
+	} else {
+		return fmt.Sprintf("%d d ago", int(timeSince.Hours()/24))
+	}
+}
+
+// getActivityStatusStyle returns the appropriate style for the given activity status
+// This method provides compatibility for test code that expects this interface
+func (s SessionListItem) getActivityStatusStyle(activityStatus string) lipgloss.Style {
+	switch activityStatus {
+	case "working":
+		return ClaudeSquadAccentStyle // Green for working
+	case "idle":
+		return WarningStyle // Yellow for idle
+	case "stuck":
+		return ErrorStyle // Red for stuck
+	case "unknown":
+		fallthrough
+	default:
+		return ClaudeSquadMutedStyle // Muted for unknown
+	}
+}
+
+// FilterType represents the type of filter applied to the list
+type FilterType int
+
+const (
+	FilterNone FilterType = iota
+	FilterStuck
+	FilterWorking
+)
+
 // ListModel wraps the bubbles list component with Claude Squad styling
 type ListModel struct {
-	list    list.Model
-	width   int
-	height  int
+	list         list.Model
+	width        int
+	height       int
+	allSessions  []SessionInfo // Store all sessions for filtering
+	filterType   FilterType    // Current filter type
+	stuckToggled bool         // Track if stuck filter is toggled on/off
 }
 
 // NewListModel creates a new list model with Claude Squad styling
@@ -134,22 +261,22 @@ func NewListModel(width, height int) ListModel {
 	l.SetShowPagination(false) // Hide pagination for cleaner look when few items
 	
 	return ListModel{
-		list:   l,
-		width:  width,
-		height: height,
+		list:         l,
+		width:        width,
+		height:       height,
+		allSessions:  []SessionInfo{},
+		filterType:   FilterNone,
+		stuckToggled: false,
 	}
 }
 
 // LoadSessions loads session information and renders each row with agent name, status icon, diff stats, and dev URL
 func (m *ListModel) LoadSessions(sessions []SessionInfo) {
-	// Convert SessionInfo slice to list.Item slice
-	items := make([]list.Item, len(sessions))
-	for i, session := range sessions {
-		items[i] = NewSessionListItem(session)
-	}
+	// Store all sessions for filtering
+	m.allSessions = sessions
 	
-	// Update the list with new items
-	m.list.SetItems(items)
+	// Apply current filter and update list
+	m.applyFilter()
 }
 
 // SetSize updates the dimensions of the list
@@ -221,4 +348,94 @@ func (m ListModel) View() string {
 	}
 	
 	return ClaudeSquadBorderStyle.Render(m.list.View())
+}
+
+// ToggleStuckFilter toggles the stuck agents filter on/off
+func (m *ListModel) ToggleStuckFilter() {
+	if m.filterType == FilterStuck {
+		// Turn off stuck filter
+		m.filterType = FilterNone
+		m.stuckToggled = false
+	} else {
+		// Turn on stuck filter
+		m.filterType = FilterStuck
+		m.stuckToggled = true
+	}
+	m.applyFilter()
+}
+
+// SetWorkingFilter sets the working agents filter
+func (m *ListModel) SetWorkingFilter() {
+	m.filterType = FilterWorking
+	m.stuckToggled = false
+	m.applyFilter()
+}
+
+// ClearFilter clears any active filter
+func (m *ListModel) ClearFilter() {
+	m.filterType = FilterNone
+	m.stuckToggled = false
+	m.applyFilter()
+}
+
+// GetFilterStatus returns a string describing the current filter status
+func (m *ListModel) GetFilterStatus() string {
+	switch m.filterType {
+	case FilterStuck:
+		return "Showing stuck agents only"
+	case FilterWorking:
+		return "Showing working agents only"
+	default:
+		return ""
+	}
+}
+
+// applyFilter applies the current filter to sessions and updates the list
+func (m *ListModel) applyFilter() {
+	filteredSessions := m.filterSessions(m.allSessions)
+	
+	// Convert SessionInfo slice to list.Item slice
+	items := make([]list.Item, len(filteredSessions))
+	for i, session := range filteredSessions {
+		items[i] = NewSessionListItem(session)
+	}
+	
+	// Update the list with filtered items
+	m.list.SetItems(items)
+}
+
+// filterSessions filters sessions based on the current filter type
+func (m *ListModel) filterSessions(sessions []SessionInfo) []SessionInfo {
+	if m.filterType == FilterNone {
+		return sessions
+	}
+	
+	var filtered []SessionInfo
+	for _, session := range sessions {
+		item := NewSessionListItem(session)
+		activityStatus := item.getActivityStatus()
+		
+		switch m.filterType {
+		case FilterStuck:
+			if activityStatus == "stuck" {
+				filtered = append(filtered, session)
+			}
+		case FilterWorking:
+			if activityStatus == "working" {
+				filtered = append(filtered, session)
+			}
+		}
+	}
+	
+	return filtered
+}
+
+// Items returns the current list items for test compatibility
+func (m *ListModel) Items() []list.Item {
+	return m.list.Items()
+}
+// SetFilter sets the filter type for test compatibility
+func (m *ListModel) SetFilter(filterType FilterType) {
+	m.filterType = filterType
+	m.applyFilter()
 }

@@ -115,7 +115,11 @@ func TestExecutePrompt(t *testing.T) {
 			name: "no arguments provided",
 			args: []string{},
 			setupConfig: func() string {
-				return createTestConfig(t, "npm start --port $PORT", "3000-3010")
+				tempDir := t.TempDir()
+				configFile := filepath.Join(tempDir, "uzi.yaml")
+				content := "devCommand: npm start --port $PORT\nportRange: 3000-3010\n"
+				os.WriteFile(configFile, []byte(content), 0644)
+				return configFile
 			},
 			setupFlags:    func() {},
 			expectError:   true,
@@ -135,7 +139,11 @@ func TestExecutePrompt(t *testing.T) {
 			name: "config missing devCommand",
 			args: []string{"test", "prompt"},
 			setupConfig: func() string {
-				return createTestConfig(t, "", "3000-3010")
+				tempDir := t.TempDir()
+				configFile := filepath.Join(tempDir, "uzi.yaml")
+				content := "portRange: 3000-3010\n"
+				os.WriteFile(configFile, []byte(content), 0644)
+				return configFile
 			},
 			setupFlags:    func() {},
 			expectError:   true,
@@ -145,7 +153,11 @@ func TestExecutePrompt(t *testing.T) {
 			name: "config missing portRange",
 			args: []string{"test", "prompt"},
 			setupConfig: func() string {
-				return createTestConfig(t, "npm start --port $PORT", "")
+				tempDir := t.TempDir()
+				configFile := filepath.Join(tempDir, "uzi.yaml")
+				content := "devCommand: npm start --port $PORT\n"
+				os.WriteFile(configFile, []byte(content), 0644)
+				return configFile
 			},
 			setupFlags:    func() {},
 			expectError:   true,
@@ -155,7 +167,11 @@ func TestExecutePrompt(t *testing.T) {
 			name: "invalid agents flag",
 			args: []string{"test", "prompt"},
 			setupConfig: func() string {
-				return createTestConfig(t, "npm start --port $PORT", "3000-3010")
+				tempDir := t.TempDir()
+				configFile := filepath.Join(tempDir, "uzi.yaml")
+				content := "devCommand: npm start --port $PORT\nportRange: 3000-3010\n"
+				os.WriteFile(configFile, []byte(content), 0644)
+				return configFile
 			},
 			setupFlags: func() {
 				*agentsFlag = "invalid:agent:format"
@@ -297,7 +313,11 @@ func TestExecutePromptSuccessCase(t *testing.T) {
 		}()
 
 		// Create config with invalid port range
-		*configPath = createTestConfig(t, "echo test", "invalid-port-range")
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, "uzi.yaml")
+		content := "devCommand: echo test\nportRange: invalid-port-range\n"
+		os.WriteFile(configFile, []byte(content), 0644)
+		*configPath = configFile
 		*agentsFlag = "claude:1"
 
 		err := executePrompt(context.Background(), []string{"uzi", "test prompt"})
@@ -322,7 +342,11 @@ func TestExecutePromptSuccessCase(t *testing.T) {
 			*agentsFlag = originalAgentsFlag
 		}()
 
-		*configPath = createTestConfig(t, "echo 'test server on port $PORT'", "45000-45010")
+		tempDir := t.TempDir()
+		configFile := filepath.Join(tempDir, "uzi.yaml")
+		content := "devCommand: echo 'test server on port $PORT'\nportRange: 45000-45010\n"
+		os.WriteFile(configFile, []byte(content), 0644)
+		*configPath = configFile
 		*agentsFlag = "random:1"
 
 		err := executePrompt(context.Background(), []string{"uzi", "test prompt with random agent"})
@@ -339,27 +363,4 @@ func TestExecutePromptSuccessCase(t *testing.T) {
 			}
 		}
 	})
-}
-
-// Helper function to create a test config file
-func createTestConfig(t *testing.T, devCommand, portRange string) string {
-	t.Helper()
-
-	tempDir := t.TempDir()
-	configFile := filepath.Join(tempDir, "uzi.yaml")
-
-	content := ""
-	if devCommand != "" {
-		content += "devCommand: " + devCommand + "\n"
-	}
-	if portRange != "" {
-		content += "portRange: " + portRange + "\n"
-	}
-
-	err := os.WriteFile(configFile, []byte(content), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test config file: %v", err)
-	}
-
-	return configFile
 }

@@ -5,16 +5,22 @@ package tui
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"github.com/nehpz/claudicus/pkg/agents"
+	"github.com/nehpz/claudicus/pkg/config"
 	"github.com/nehpz/claudicus/pkg/state"
 )
 
@@ -23,15 +29,18 @@ var uziExecCommand = exec.Command
 
 // SessionInfo contains displayable information about a session
 type SessionInfo struct {
-	Name        string `json:"name"`
-	AgentName   string `json:"agent_name"`
-	Model       string `json:"model"`
-	Status      string `json:"status"`
-	Prompt      string `json:"prompt"`
-	Insertions  int    `json:"insertions"`
-	Deletions   int    `json:"deletions"`
-	WorktreePath string `json:"worktree_path"`
-	Port        int    `json:"port,omitempty"`
+	Name           string `json:"name"`
+	AgentName      string `json:"agent_name"`
+	Model          string `json:"model"`
+	Status         string `json:"status"`
+	Prompt         string `json:"prompt"`
+	Insertions     int    `json:"insertions"`
+	Deletions      int    `json:"deletions"`
+	WorktreePath   string `json:"worktree_path"`
+	Port           int    `json:"port,omitempty"`
+	CreatedAt      string `json:"created_at,omitempty"`
+	UpdatedAt      string `json:"updated_at,omitempty"`
+	ActivityStatus string `json:"activity_status,omitempty"` // For test compatibility
 }
 
 // UziInterface defines the interface for interacting with Uzi core functionality
@@ -62,6 +71,9 @@ type UziInterface interface {
 	
 	// RunCommand executes a command in all sessions
 	RunCommand(command string) error
+	
+	// SpawnAgent creates a new agent and returns the session name
+	SpawnAgent(prompt, model string) (string, error)
 }
 
 // ProxyConfig defines configuration for the UziCLI proxy
@@ -88,6 +100,31 @@ func DefaultProxyConfig() ProxyConfig {
 type StateManagerInterface interface {
 	GetActiveSessionsForRepo() ([]string, error)
 	GetStatePath() string
+	RemoveState(sessionName string) error
+	SaveState(prompt, branchName, sessionName, worktreePath, model string) error
+	SaveStateWithPort(prompt, branchName, sessionName, worktreePath, model string, port int) error
+}
+
+// StateManagerBridge implements StateManagerInterface by wrapping state.StateManager
+type StateManagerBridge struct {
+	*state.StateManager
+}
+
+// NewStateManagerBridge creates a new StateManagerBridge
+func NewStateManagerBridge() StateManagerInterface {
+	return &StateManagerBridge{
+		StateManager: state.NewStateManager(),
+	}
+}
+
+// SaveState delegates to the wrapped StateManager
+func (s *StateManagerBridge) SaveState(prompt, branchName, sessionName, worktreePath, model string) error {
+	return s.StateManager.SaveState(prompt, branchName, sessionName, worktreePath, model)
+}
+
+// SaveStateWithPort delegates to the wrapped StateManager
+func (s *StateManagerBridge) SaveStateWithPort(prompt, branchName, sessionName, worktreePath, model string, port int) error {
+	return s.StateManager.SaveStateWithPort(prompt, branchName, sessionName, worktreePath, model, port)
 }
 
 type UziCLI struct {
@@ -370,6 +407,145 @@ func (c *UziCLI) RunCommand(command string) error {
 	return nil
 }
 
+// SpawnAgent implements UziInterface - creates a new agent following the uzi nuke && uzi start workflow
+// This method handles the full agent creation process including:
+// - Branch creation with unique naming
+// - Git worktree setup
+// - Tmux session creation and configuration
+// - Development environment setup (if configured)
+// - Agent command execution
+func (c *UziCLI) SpawnAgent(prompt, model string) (string, error) {
+	start := time.Now()
+	defer func() { c.logOperation("SpawnAgent", time.Since(start), nil) }()
+	
+	// Create the agent configuration by wrapping model in agent:count format
+	agentsFlag := fmt.Sprintf("%s:1", model)
+	
+	// Execute the spawn workflow directly using our internal implementation
+	sessionName, err := c.executeSpawnWorkflow(agentsFlag, prompt)
+	if err != nil {
+		return "", c.wrapError("SpawnAgent", err)
+	}
+	
+	return sessionName, nil
+}
+
+// executeSpawnWorkflow implements the core agent spawning logic based on cmd/prompt/prompt.go
+// This follows the same workflow as `uzi prompt` but returns the created session name
+func (c *UziCLI) executeSpawnWorkflow(agentsFlag, promptText string) (string, error) {
+	// Load config - required for standardized dev environment setup (will be handled in individual helper methods)
+	// The UziCLI uses ProxyConfig, not uzi.yaml config, so we'll handle config loading in helper methods
+	
+	// Parse the agent configuration
+	agentConfigs, err := c.parseAgentConfigs(agentsFlag)
+	if err != nil {
+		return "", fmt.Errorf("error parsing agents: %w", err)
+	}
+	
+	// Load existing session ports to prevent collisions
+	stateManager := c.stateManager
+	
+	existingPorts, err := c.getExistingSessionPorts(stateManager)
+	if err != nil {
+		log.Printf("Failed to load existing session ports, proceeding without collision check: %v", err)
+		existingPorts = []int{}
+	}
+	
+	// Track assigned ports
+	assignedPorts := existingPorts
+	var createdSessionName string
+	
+	// Process each agent configuration (typically just one for SpawnAgent)
+	for agent, config := range agentConfigs {
+		for i := 0; i < config.Count; i++ {
+			sessionName, err := c.createSingleAgent(agent, config, promptText, &assignedPorts, stateManager)
+			if err != nil {
+				return "", fmt.Errorf("failed to create agent %s: %w", agent, err)
+			}
+			
+			// Store the first (and typically only) created session name
+			if createdSessionName == "" {
+				createdSessionName = sessionName
+			}
+		}
+	}
+	
+	if createdSessionName == "" {
+		return "", fmt.Errorf("no agent session was created")
+	}
+	
+	return createdSessionName, nil
+}
+
+// createSingleAgent creates a single agent session following the established workflow
+func (c *UziCLI) createSingleAgent(agent string, config AgentConfig, promptText string, assignedPorts *[]int, stateManager StateManagerInterface) (string, error) {
+	// Generate random agent name for unique identification
+	randomAgentName, err := c.getRandomAgentName(agent)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate agent name: %w", err)
+	}
+	
+	// Get git information
+	gitHash, projectDir, err := c.getGitInfo()
+	if err != nil {
+		return "", fmt.Errorf("failed to get git information: %w", err)
+	}
+	
+	// Generate unique identifiers
+	timestamp := time.Now().Unix()
+	uniqueId := fmt.Sprintf("%d", timestamp)
+	
+	// Create branch and session names
+	branchName := fmt.Sprintf("%s-%s-%s-%s", randomAgentName, projectDir, gitHash, uniqueId)
+	worktreeName := fmt.Sprintf("%s-%s-%s-%s", randomAgentName, projectDir, gitHash, uniqueId)
+	sessionName := fmt.Sprintf("agent-%s-%s-%s", projectDir, gitHash, randomAgentName)
+	
+	// Create worktree
+	worktreePath, err := c.createWorktree(branchName, worktreeName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create worktree: %w", err)
+	}
+	
+	// Create tmux session
+	if err := c.createTmuxSession(sessionName, worktreePath); err != nil {
+		return "", fmt.Errorf("failed to create tmux session: %w", err)
+	}
+	
+	// Setup development environment and execute agent command
+	var selectedPort int
+	// Always try to setup dev environment - the method will check if config is available
+	selectedPort, err = c.setupDevEnvironment(sessionName, worktreePath, assignedPorts)
+	if err != nil {
+		log.Printf("Failed to setup dev environment, continuing without it: %v", err)
+		selectedPort = 0
+	}
+	
+	// Execute the agent command
+	commandToUse := config.Command
+	if agent == "random" {
+		commandToUse = randomAgentName
+	}
+	
+	if err := c.executeAgentCommand(sessionName, commandToUse, promptText, worktreePath); err != nil {
+		return "", fmt.Errorf("failed to execute agent command: %w", err)
+	}
+	
+	// Save state
+	if stateManager != nil {
+		if selectedPort > 0 {
+			if err := stateManager.SaveStateWithPort(promptText, branchName, sessionName, worktreePath, commandToUse, selectedPort); err != nil {
+				log.Printf("Failed to save state with port: %v", err)
+			}
+		} else {
+			if err := stateManager.SaveState(promptText, branchName, sessionName, worktreePath, commandToUse); err != nil {
+				log.Printf("Failed to save state: %v", err)
+			}
+		}
+	}
+	
+	return sessionName, nil
+}
+
 // Helper functions (these replicate logic from cmd/ls/ls.go for now)
 
 // extractAgentName extracts the agent name from a session name
@@ -591,5 +767,309 @@ func (c *UziClient) KillSession(sessionName string) error {
 
 func (c *UziClient) RefreshSessions() error {
 	// Stub: will be replaced by UziCLI implementation
+	return nil
+}
+
+// SpawnAgent helper methods implementation
+
+// AgentConfig represents an agent configuration
+type AgentConfig struct {
+	Command string
+	Count   int
+}
+
+// loadDefaultConfig loads the default uzi configuration
+func (c *UziCLI) loadDefaultConfig() (*config.Config, error) {
+	configPath := config.GetDefaultConfigPath()
+	return config.LoadConfig(configPath)
+}
+
+// parseAgentConfigs parses the agents flag value into a map of agent configs
+func (c *UziCLI) parseAgentConfigs(agentsStr string) (map[string]AgentConfig, error) {
+	agentConfigs := make(map[string]AgentConfig)
+
+	// Split by comma for multiple agent configurations
+	agentPairs := strings.Split(agentsStr, ",")
+
+	for _, pair := range agentPairs {
+		// Split by colon for agent:count
+		parts := strings.Split(strings.TrimSpace(pair), ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid agent format: %s (expected agent:count)", pair)
+		}
+
+		agent := strings.TrimSpace(parts[0])
+		countStr := strings.TrimSpace(parts[1])
+
+		count, err := strconv.Atoi(countStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid count for agent %s: %s", agent, countStr)
+		}
+
+		if count < 1 {
+			return nil, fmt.Errorf("count must be at least 1 for agent %s", agent)
+		}
+
+		// Map agent names to actual commands
+		command := c.getCommandForAgent(agent)
+		agentConfigs[agent] = AgentConfig{
+			Command: command,
+			Count:   count,
+		}
+	}
+
+	return agentConfigs, nil
+}
+
+// getCommandForAgent maps agent names to their actual CLI commands
+func (c *UziCLI) getCommandForAgent(agent string) string {
+	switch agent {
+	case "claude":
+		return "claude"
+	case "cursor":
+		return "cursor"
+	case "codex":
+		return "codex"
+	case "gemini":
+		return "gemini"
+	case "random":
+		return "claude" // Default for random agents
+	default:
+		// For unknown agents, assume the agent name is the command
+		return agent
+	}
+}
+
+// getExistingSessionPorts reads the state file and returns all currently assigned ports
+func (c *UziCLI) getExistingSessionPorts(stateManager StateManagerInterface) ([]int, error) {
+	if stateManager == nil {
+		return []int{}, nil
+	}
+	
+	// Read the state file
+	stateFile := stateManager.GetStatePath()
+	data, err := os.ReadFile(stateFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No state file exists yet, return empty list
+			return []int{}, nil
+		}
+		return nil, fmt.Errorf("failed to read state file: %w", err)
+	}
+	
+	// Parse the state file
+	states := make(map[string]state.AgentState)
+	if err := json.Unmarshal(data, &states); err != nil {
+		return nil, fmt.Errorf("failed to parse state file: %w", err)
+	}
+	
+	// Extract all assigned ports
+	var existingPorts []int
+	for _, agentState := range states {
+		if agentState.Port > 0 {
+			existingPorts = append(existingPorts, agentState.Port)
+		}
+	}
+	
+	return existingPorts, nil
+}
+
+// getRandomAgentName generates a random agent name
+func (c *UziCLI) getRandomAgentName(agent string) (string, error) {
+	if agent == "random" {
+		return agents.GetRandomAgent(), nil
+	}
+	return agent, nil
+}
+
+// getGitInfo retrieves git hash and project directory information
+func (c *UziCLI) getGitInfo() (gitHash, projectDir string, err error) {
+	ctx := context.Background()
+	
+	// Get the current git hash
+	gitHashCmd := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD")
+	gitHashOutput, err := gitHashCmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("error getting git hash: %w", err)
+	}
+	gitHash = strings.TrimSpace(string(gitHashOutput))
+
+	// Get the git repository name from remote URL
+	gitRemoteCmd := exec.CommandContext(ctx, "git", "remote", "get-url", "origin")
+	gitRemoteOutput, err := gitRemoteCmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("error getting git remote: %w", err)
+	}
+	remoteURL := strings.TrimSpace(string(gitRemoteOutput))
+	// Extract repository name from URL (handle both https and ssh formats)
+	repoName := filepath.Base(remoteURL)
+	projectDir = strings.TrimSuffix(repoName, ".git")
+	
+	return gitHash, projectDir, nil
+}
+
+// createWorktree creates a git worktree for the agent
+func (c *UziCLI) createWorktree(branchName, worktreeName string) (string, error) {
+	ctx := context.Background()
+	
+	// Get home directory for worktree storage
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("error getting home directory: %w", err)
+	}
+
+	worktreesDir := filepath.Join(homeDir, ".local", "share", "uzi", "worktrees")
+	if err := os.MkdirAll(worktreesDir, 0755); err != nil {
+		return "", fmt.Errorf("error creating worktrees directory: %w", err)
+	}
+
+	worktreePath := filepath.Join(worktreesDir, worktreeName)
+	
+	// Create git worktree
+	cmd := fmt.Sprintf("git worktree add -b %s %s", branchName, worktreePath)
+	cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
+	if err := cmdExec.Run(); err != nil {
+		return "", fmt.Errorf("error creating git worktree: %w", err)
+	}
+	
+	return worktreePath, nil
+}
+
+// createTmuxSession creates a tmux session for the agent
+func (c *UziCLI) createTmuxSession(sessionName, worktreePath string) error {
+	ctx := context.Background()
+	
+	// Create tmux session
+	cmd := fmt.Sprintf("tmux new-session -d -s %s -c %s", sessionName, worktreePath)
+	cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
+	if err := cmdExec.Run(); err != nil {
+		return fmt.Errorf("error creating tmux session: %w", err)
+	}
+
+	// Rename the first window to "agent"
+	renameCmd := fmt.Sprintf("tmux rename-window -t %s:0 agent", sessionName)
+	renameExec := exec.CommandContext(ctx, "sh", "-c", renameCmd)
+	if err := renameExec.Run(); err != nil {
+		return fmt.Errorf("error renaming tmux window: %w", err)
+	}
+	
+	return nil
+}
+
+// setupDevEnvironment sets up the development environment if configured
+func (c *UziCLI) setupDevEnvironment(sessionName, worktreePath string, assignedPorts *[]int) (int, error) {
+	ctx := context.Background()
+	
+	// Load configuration to get dev settings
+	cfg, err := c.loadDefaultConfig()
+	if err != nil {
+		return 0, fmt.Errorf("failed to load config: %w", err)
+	}
+	
+	if cfg.DevCommand == nil || *cfg.DevCommand == "" || cfg.PortRange == nil || *cfg.PortRange == "" {
+		return 0, nil // No dev environment to set up
+	}
+	
+	// Parse port range
+	ports := strings.Split(*cfg.PortRange, "-")
+	if len(ports) != 2 {
+		return 0, fmt.Errorf("invalid port range format: %s", *cfg.PortRange)
+	}
+
+	startPort, err1 := strconv.Atoi(ports[0])
+	endPort, err2 := strconv.Atoi(ports[1])
+	if err1 != nil || err2 != nil || startPort <= 0 || endPort <= 0 || endPort < startPort {
+		return 0, fmt.Errorf("invalid port range: %s", *cfg.PortRange)
+	}
+
+	// Find available port
+	selectedPort, err := c.findAvailablePort(startPort, endPort, *assignedPorts)
+	if err != nil {
+		return 0, fmt.Errorf("error finding available port: %w", err)
+	}
+
+	// Create development command
+	devCmdTemplate := *cfg.DevCommand
+	devCmd := strings.Replace(devCmdTemplate, "$PORT", strconv.Itoa(selectedPort), 1)
+
+	// Create new window named uzi-dev
+	newWindowCmd := fmt.Sprintf("tmux new-window -t %s -n uzi-dev -c %s", sessionName, worktreePath)
+	newWindowExec := exec.CommandContext(ctx, "sh", "-c", newWindowCmd)
+	if err := newWindowExec.Run(); err != nil {
+		return 0, fmt.Errorf("error creating new tmux window for dev server: %w", err)
+	}
+
+	// Send dev command to the new window
+	sendDevCmd := fmt.Sprintf("tmux send-keys -t %s:uzi-dev '%s' C-m", sessionName, devCmd)
+	sendDevCmdExec := exec.CommandContext(ctx, "sh", "-c", sendDevCmd)
+	if err := sendDevCmdExec.Run(); err != nil {
+		return 0, fmt.Errorf("error sending dev command to tmux: %w", err)
+	}
+
+	// Update assigned ports
+	*assignedPorts = append(*assignedPorts, selectedPort)
+	
+	return selectedPort, nil
+}
+
+// findAvailablePort finds the first available port in the given range, excluding already assigned ports
+func (c *UziCLI) findAvailablePort(startPort, endPort int, assignedPorts []int) (int, error) {
+	for port := startPort; port <= endPort; port++ {
+		// Check if port is already assigned in this execution
+		alreadyAssigned := false
+		for _, assignedPort := range assignedPorts {
+			if port == assignedPort {
+				alreadyAssigned = true
+				break
+			}
+		}
+		if alreadyAssigned {
+			continue
+		}
+
+		// Check if port is actually available
+		if c.isPortAvailable(port) {
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("no available ports in range %d-%d", startPort, endPort)
+}
+
+// isPortAvailable checks if a port is available for use
+func (c *UziCLI) isPortAvailable(port int) bool {
+	address := fmt.Sprintf(":%d", port)
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return false
+	}
+	listener.Close()
+	return true
+}
+
+// executeAgentCommand executes the agent command in the tmux session
+func (c *UziCLI) executeAgentCommand(sessionName, commandToUse, promptText, worktreePath string) error {
+	ctx := context.Background()
+	
+	// Hit enter in the agent pane
+	hitEnterCmd := fmt.Sprintf("tmux send-keys -t %s:agent C-m", sessionName)
+	hitEnterExec := exec.CommandContext(ctx, "sh", "-c", hitEnterCmd)
+	if err := hitEnterExec.Run(); err != nil {
+		return fmt.Errorf("error hitting enter in tmux: %w", err)
+	}
+
+	// Prepare the command template based on the agent type
+	var tmuxCmd string
+	if commandToUse == "gemini" {
+		tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%s\"' C-m", sessionName, commandToUse, promptText)
+	} else {
+		tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%s\"' C-m", sessionName, commandToUse, promptText)
+	}
+	
+	tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", tmuxCmd)
+	tmuxCmdExec.Dir = worktreePath
+	if err := tmuxCmdExec.Run(); err != nil {
+		return fmt.Errorf("error sending keys to tmux: %w", err)
+	}
+	
 	return nil
 }

@@ -13,10 +13,13 @@ import (
 
 // DiffPreviewModel handles git diff display for agent sessions
 type DiffPreviewModel struct {
-	content string
-	error   string
-	width   int
-	height  int
+	content       string
+	commitMessages string
+	changedFiles  string
+	error        string
+	width        int
+	height       int
+	showCommits   bool // Toggle to show commits and files or just diff
 }
 
 // NewDiffPreviewModel creates a new diff preview model
@@ -37,6 +40,8 @@ func (m *DiffPreviewModel) SetSize(width, height int) {
 func (m *DiffPreviewModel) LoadDiff(session *SessionInfo) {
 	if session == nil {
 		m.content = ""
+		m.commitMessages = ""
+		m.changedFiles = ""
 		m.error = ""
 		return
 	}
@@ -49,7 +54,26 @@ func (m *DiffPreviewModel) LoadDiff(session *SessionInfo) {
 	if err != nil {
 		m.error = fmt.Sprintf("Error loading diff: %v", err)
 		m.content = ""
+		m.commitMessages = ""
+		m.changedFiles = ""
 		return
+	}
+
+	// Get commit messages and changed files
+	commitMessages, err := m.getCommitMessages(session.WorktreePath)
+	if err != nil {
+		// Don't fail entirely if commit messages fail
+		m.commitMessages = fmt.Sprintf("Error loading commits: %v", err)
+	} else {
+		m.commitMessages = commitMessages
+	}
+
+	changedFiles, err := m.getChangedFiles(session.WorktreePath)
+	if err != nil {
+		// Don't fail entirely if changed files fail
+		m.changedFiles = fmt.Sprintf("Error loading changed files: %v", err)
+	} else {
+		m.changedFiles = changedFiles
 	}
 
 	m.content = diff
@@ -78,6 +102,57 @@ func (m *DiffPreviewModel) getGitDiff(worktreePath string) (string, error) {
 	return result, nil
 }
 
+// getCommitMessages executes git log command and returns the last 3 commit messages
+func (m *DiffPreviewModel) getCommitMessages(worktreePath string) (string, error) {
+	if worktreePath == "" {
+		return "No worktree path available", nil
+	}
+
+	// Get last 3 commit messages with compact format
+	cmd := exec.Command("git", "--no-pager", "log", "-n3", "--pretty=format:%h %s (%an, %ar)")
+	cmd.Dir = worktreePath
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git log failed: %w", err)
+	}
+
+	result := strings.TrimSpace(string(output))
+	if result == "" {
+		return "No commit history", nil
+	}
+
+	return result, nil
+}
+
+// getChangedFiles executes git diff command and returns list of changed files
+func (m *DiffPreviewModel) getChangedFiles(worktreePath string) (string, error) {
+	if worktreePath == "" {
+		return "No worktree path available", nil
+	}
+
+	// Get list of changed files with status
+	cmd := exec.Command("sh", "-c", "git status --porcelain")
+	cmd.Dir = worktreePath
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git status failed: %w", err)
+	}
+
+	result := strings.TrimSpace(string(output))
+	if result == "" {
+		return "No changed files", nil
+	}
+
+	return result, nil
+}
+
+// ToggleView toggles between showing commits/files and diff
+func (m *DiffPreviewModel) ToggleView() {
+	m.showCommits = !m.showCommits
+}
+
 // View renders the diff preview
 func (m *DiffPreviewModel) View() string {
 	if m.width == 0 || m.height == 0 {
@@ -89,22 +164,39 @@ func (m *DiffPreviewModel) View() string {
 		Width(m.width - 2).
 		Height(m.height - 2)
 
+	// Create title header based on current view
+	title := "Git Diff"
+	if m.showCommits {
+		title = "Commits & Files"
+	}
+	titleHeader := ClaudeSquadHeaderStyle.Render(title)
+
 	// Handle error case
 	if m.error != "" {
 		errorContent := ClaudeSquadMutedStyle.Render(m.error)
-		return borderStyle.Render(errorContent)
+		content := lipgloss.JoinVertical(lipgloss.Left, titleHeader, errorContent)
+		return borderStyle.Render(content)
 	}
 
 	// Handle empty content
-	if m.content == "" {
-		emptyContent := ClaudeSquadMutedStyle.Render("Select an agent to view diff")
-		return borderStyle.Render(emptyContent)
+	if m.content == "" && m.commitMessages == "" && m.changedFiles == "" {
+		emptyContent := ClaudeSquadMutedStyle.Render("Select an agent to view diff\nPress 'v' to toggle commits/files view")
+		content := lipgloss.JoinVertical(lipgloss.Left, titleHeader, emptyContent)
+		return borderStyle.Render(content)
 	}
 
-	// Format the diff content with basic syntax highlighting
-	formattedContent := m.formatDiffContent(m.content)
+	var formattedContent string
+	if m.showCommits {
+		// Show commits and changed files
+		formattedContent = m.formatCommitsAndFiles()
+	} else {
+		// Show diff content with syntax highlighting
+		formattedContent = m.formatDiffContent(m.content)
+	}
 	
-	return borderStyle.Render(formattedContent)
+	// Join title and content
+	content := lipgloss.JoinVertical(lipgloss.Left, titleHeader, formattedContent)
+	return borderStyle.Render(content)
 }
 
 // formatDiffContent applies basic syntax highlighting to git diff output
@@ -140,4 +232,76 @@ func (m *DiffPreviewModel) formatDiffContent(content string) string {
 	}
 
 	return strings.Join(formatted, "\n")
+}
+
+// formatCommitsAndFiles formats commits and changed files for display
+func (m *DiffPreviewModel) formatCommitsAndFiles() string {
+	var sections []string
+
+	// Format commit messages section
+	if m.commitMessages != "" {
+		commitHeader := ClaudeSquadAccentStyle.Render("Recent Commits:")
+		commitLines := strings.Split(m.commitMessages, "\n")
+		var formattedCommits []string
+		for _, line := range commitLines {
+			if strings.TrimSpace(line) != "" {
+				formattedCommits = append(formattedCommits, ClaudeSquadMutedStyle.Render("  "+line))
+			}
+		}
+		commitSection := commitHeader + "\n" + strings.Join(formattedCommits, "\n")
+		sections = append(sections, commitSection)
+	}
+
+	// Format changed files section
+	if m.changedFiles != "" {
+		filesHeader := ClaudeSquadPrimaryStyle.Render("Changed Files:")
+		fileLines := strings.Split(m.changedFiles, "\n")
+		var formattedFiles []string
+		for _, line := range fileLines {
+			if strings.TrimSpace(line) != "" {
+				// Parse git status format (e.g., " M file.go", "A  new.go")
+				if len(line) >= 3 {
+					status := line[:2]
+					file := line[3:]
+					var statusColor lipgloss.Color
+					switch {
+					case strings.Contains(status, "A"):
+						statusColor = lipgloss.Color("#00ff9d") // Green for added
+					case strings.Contains(status, "M"):
+						statusColor = lipgloss.Color("#ffa500") // Orange for modified
+					case strings.Contains(status, "D"):
+						statusColor = lipgloss.Color("#ff6b6b") // Red for deleted
+					default:
+						statusColor = lipgloss.Color("#888888") // Gray for other
+					}
+					statusStyled := lipgloss.NewStyle().Foreground(statusColor).Render(status)
+					formattedFiles = append(formattedFiles, "  "+statusStyled+" "+file)
+				} else {
+					formattedFiles = append(formattedFiles, ClaudeSquadMutedStyle.Render("  "+line))
+				}
+			}
+		}
+		filesSection := filesHeader + "\n" + strings.Join(formattedFiles, "\n")
+		sections = append(sections, filesSection)
+	}
+
+	// Add helpful instructions at the bottom
+	if len(sections) > 0 {
+		instructions := ClaudeSquadMutedStyle.Render("\nPress 'v' to toggle back to diff view")
+		sections = append(sections, instructions)
+	}
+
+	// Join sections with spacing
+	result := strings.Join(sections, "\n\n")
+
+	// Limit the number of lines to fit in the view
+	maxLines := m.height - 4 // Account for border and padding
+	lines := strings.Split(result, "\n")
+	if len(lines) > maxLines {
+		lines = lines[:maxLines]
+		lines = append(lines, ClaudeSquadMutedStyle.Render("... (truncated)"))
+		result = strings.Join(lines, "\n")
+	}
+
+	return result
 }

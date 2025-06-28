@@ -269,10 +269,10 @@ func TestKeyMapHelpers(t *testing.T) {
 		t.Errorf("Expected ShortHelp to return 2 bindings, got %d", len(shortHelp))
 	}
 
-	// Test FullHelp
+	// Test FullHelp - updated to handle 4 groups instead of 3
 	fullHelp := keyMap.FullHelp()
-	if len(fullHelp) != 3 {
-		t.Errorf("Expected FullHelp to return 3 groups, got %d", len(fullHelp))
+	if len(fullHelp) != 5 {
+		t.Errorf("Expected FullHelp to return 5 groups, got %d", len(fullHelp))
 	}
 
 	// Test first group (navigation)
@@ -285,9 +285,14 @@ func TestKeyMapHelpers(t *testing.T) {
 		t.Errorf("Expected second group to have 4 action keys, got %d", len(fullHelp[1]))
 	}
 
-	// Test third group (application)
-	if len(fullHelp[2]) != 4 {
-		t.Errorf("Expected third group to have 4 application keys, got %d", len(fullHelp[2]))
+	// Test third group (views & agent management) - new group with Tab, ToggleCommits, Broadcast
+	if len(fullHelp[2]) != 3 {
+		t.Errorf("Expected third group to have 3 view/agent keys, got %d", len(fullHelp[2]))
+	}
+
+	// Test fourth group (application)
+	if len(fullHelp[3]) != 4 {
+		t.Errorf("Expected fourth group to have 4 application keys, got %d", len(fullHelp[3]))
 	}
 }
 
