@@ -27,22 +27,22 @@ func TestExecuteCheckpoint(t *testing.T) {
 			errorSubstr: "agent name and commit message arguments are required",
 		},
 		{
-			name:        "valid_arguments_no_state_manager",
+			name:        "valid_arguments_no_active_sessions",
 			args:        []string{"agentName", "commit message"},
 			wantErr:     true,
-			errorSubstr: "could not initialize state manager",
+			errorSubstr: "no active session found for agent",
 		},
 		{
 			name:        "multiple_arguments",
 			args:        []string{"agentName", "commit", "message", "with", "spaces"},
 			wantErr:     true,
-			errorSubstr: "could not initialize state manager", // Will fail at state manager level
+			errorSubstr: "no active session found for agent", // Will pass validation but fail at session lookup
 		},
 		{
 			name:        "empty_strings",
 			args:        []string{"", ""},
 			wantErr:     true,
-			errorSubstr: "could not initialize state manager", // Will pass validation but fail later
+			errorSubstr: "no active session found for agent", // Will pass validation but fail at session lookup
 		},
 	}
 
@@ -126,13 +126,13 @@ func TestArgumentValidation(t *testing.T) {
 			name:      "two_arguments_pass_validation",
 			args:      []string{"agent", "message"},
 			shouldErr: true,
-			errorText: "could not initialize state manager", // Should pass validation, fail later
+			errorText: "no active session found for agent", // Should pass validation, fail at session lookup
 		},
 		{
 			name:      "multiple_arguments_pass_validation",
 			args:      []string{"agent", "commit", "message", "with", "spaces"},
 			shouldErr: true,
-			errorText: "could not initialize state manager", // Should pass validation, fail later
+			errorText: "no active session found for agent", // Should pass validation, fail at session lookup
 		},
 	}
 

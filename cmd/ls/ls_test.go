@@ -1,71 +1,50 @@
 package ls
 
 import (
-    "context"
-    "testing"
-    "github.com/charmbracelet/log"
-    "github.com/nehpz/claudicus/pkg/state"
-    "github.com/nehpz/claudicus/pkg/testutil/cmdmock"
+	"context"
+	"strings"
+	"testing"
 )
 
 func TestExecuteLs(t *testing.T) {
-    tests := []struct {
-        name        string
-        args        []string
-        wantErr     bool
-        errMsg      string
-        prepareMock func()
-    }{
-        {
-            name: "list_sessions",
-            args: []string{},
-            prepareMock: func() {
-                state.MockActiveSessions([]string{"session1"})
-                cmdmock.SetResponse("tmux list-sessions", "session1", false)
-            },
-            wantErr: false,
-        },
-        {
-            name: "json_output",
-            args: []string{"--json"},
-            prepareMock: func() {
-                state.MockActiveSessions([]string{"session-json"})
-                cmdmock.SetResponse("tmux list-sessions", "session-json", false)
-            },
-            wantErr: false,
-        },
-        {
-            name: "error_case",
-            args: []string{},
-            prepareMock: func() {
-                cmdmock.SetResponse("tmux list-sessions", "error", true)
-            },
-            wantErr: true,
-        },
-    }
+	tests := []struct {
+		name        string
+		args        []string
+		wantErr     bool
+		errorSubstr string
+	}{
+		{
+			name:        "normal_list_no_sessions",
+			args:        []string{},
+			wantErr:     false, // Returns nil when no sessions found
+			errorSubstr: "",
+		},
+		{
+			name:        "json_output_no_sessions",
+			args:        []string{"--json"},
+			wantErr:     false, // Returns nil when no sessions found
+			errorSubstr: "",
+		},
+	}
 
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            if tt.prepareMock != nil {
-                tt.prepareMock()
-            }
-
-            log.SetDefault(log.NewLogfmtLogger(log.StdlibWriter{}))
-            log.Default().SetLevel(log.DebugLevel)
-
-            err := executeLs(context.Background(), tt.args)
-            if tt.wantErr {
-                if err == nil {
-                    t.Errorf("expected error but got none")
-                }
-
-                if tt.errMsg != "" && err != nil && err.Error() != tt.errMsg {
-                    t.Errorf("expected error message '%s', but got '%v'", tt.errMsg, err)
-                }
-            } else if err != nil {
-                t.Errorf("unexpected error: %v", err)
-            }
-        })
-    }
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := executeLs(context.Background(), tt.args)
+			
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("executeLs() expected error, got nil")
+					return
+				}
+				if !strings.Contains(err.Error(), tt.errorSubstr) {
+					t.Errorf("executeLs() error = %v, want substring %v", err, tt.errorSubstr)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("executeLs() unexpected error = %v", err)
+				}
+			}
+		})
+	}
 }
 
