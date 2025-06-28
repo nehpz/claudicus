@@ -11,6 +11,37 @@ import (
 	"time"
 )
 
+// TmuxInterface defines the interface for interacting with tmux
+type TmuxInterface interface {
+	ListSessions() ([]byte, error)
+	ListWindows(sessionName string) ([]byte, error)
+	ListPanes(sessionName string) ([]byte, error)
+	CapturePane(sessionName string) ([]byte, error)
+}
+
+// TmuxReal implements TmuxInterface for real tmux commands
+type TmuxReal struct{}
+
+// ListSessions executes the real tmux list-sessions command
+func (t *TmuxReal) ListSessions() ([]byte, error) {
+	return exec.Command("tmux", "list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}").Output()
+}
+
+// ListWindows executes the real tmux list-windows command
+func (t *TmuxReal) ListWindows(sessionName string) ([]byte, error) {
+	return exec.Command("tmux", "list-windows", "-t", sessionName, "-F", "#{window_name}").Output()
+}
+
+// ListPanes executes the real tmux list-panes command
+func (t *TmuxReal) ListPanes(sessionName string) ([]byte, error) {
+	return exec.Command("tmux", "list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}").Output()
+}
+
+// CapturePane executes the real tmux capture-pane command
+func (t *TmuxReal) CapturePane(sessionName string) ([]byte, error) {
+	return exec.Command("tmux", "capture-pane", "-t", sessionName+":agent", "-p").Output()
+}
+
 // execCommand allows mocking exec.Command for testing
 var execCommand = exec.Command
 
@@ -30,8 +61,9 @@ type TmuxSessionInfo struct {
 type TmuxDiscovery struct {
 	// Cache to avoid calling tmux ls too frequently
 	lastUpdate time.Time
-	sessions    map[string]TmuxSessionInfo
-	cacheTime   time.Duration
+	sessions   map[string]TmuxSessionInfo
+	cacheTime  time.Duration
+	tmux       TmuxInterface
 }
 
 // NewTmuxDiscovery creates a new tmux discovery helper
@@ -39,6 +71,7 @@ func NewTmuxDiscovery() *TmuxDiscovery {
 	return &TmuxDiscovery{
 		sessions:  make(map[string]TmuxSessionInfo),
 		cacheTime: 2 * time.Second, // Cache for 2 seconds to avoid excessive tmux calls
+		tmux:      &TmuxReal{},
 	}
 }
 
@@ -87,7 +120,7 @@ func (td *TmuxDiscovery) MapUziSessionsToTmux(uziSessions []SessionInfo) (map[st
 	}
 
 	sessionMap := make(map[string]TmuxSessionInfo)
-	
+
 	for _, uziSession := range uziSessions {
 		// Try to find corresponding tmux session
 		if tmuxInfo, exists := tmuxSessions[uziSession.Name]; exists {
@@ -115,7 +148,7 @@ func (td *TmuxDiscovery) IsSessionAttached(sessionName string) bool {
 	if session, exists := sessions[sessionName]; exists {
 		return session.Attached
 	}
-	
+
 	return false
 }
 
@@ -129,31 +162,22 @@ func (td *TmuxDiscovery) GetSessionActivity(sessionName string) string {
 	if session, exists := sessions[sessionName]; exists {
 		return session.Activity
 	}
-	
+
 	return "inactive"
 }
 
 // discoverTmuxSessions calls `tmux ls` and parses the output
 func (td *TmuxDiscovery) discoverTmuxSessions() (map[string]TmuxSessionInfo, error) {
 	// Call tmux list-sessions with detailed format
-	cmd := execCommand("tmux", "list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}")
-	output, err := cmd.Output()
+	output, err := td.tmux.ListSessions()
 	if err != nil {
-		// In tests, cmdmock returns "exit status 1" for mocked failures
-		// In real usage, we want to propagate actual tmux errors
-		if strings.Contains(err.Error(), "exit status") {
-			// This is likely a mocked test error - propagate it
-			return nil, err
+		// Check if it's a tmux error that means "no sessions" (expected condition)
+		if strings.Contains(err.Error(), "no server running") {
+			// This means tmux is working but no sessions exist - return empty map
+			return make(map[string]TmuxSessionInfo), nil
 		}
-		// Check if it's a real tmux error vs just no sessions
-		if strings.Contains(err.Error(), "no server running") || 
-		   strings.Contains(err.Error(), "command not found") ||
-		   strings.Contains(err.Error(), "server error") {
-			// Real tmux error - propagate it
-			return nil, err
-		}
-		// If tmux command fails due to no sessions, return empty map
-		return make(map[string]TmuxSessionInfo), nil
+		// All other errors (including "command not found", test errors, etc.) should be propagated
+		return nil, err
 	}
 
 	sessions := make(map[string]TmuxSessionInfo)
@@ -223,8 +247,7 @@ func (td *TmuxDiscovery) parseSessionLine(line string) (TmuxSessionInfo, error) 
 // getSessionWindows gets window names and pane count for a session
 func (td *TmuxDiscovery) getSessionWindows(sessionName string) ([]string, int, error) {
 	// Get window information
-	windowCmd := execCommand("tmux", "list-windows", "-t", sessionName, "-F", "#{window_name}")
-	windowOutput, err := windowCmd.Output()
+	windowOutput, err := td.tmux.ListWindows(sessionName)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -235,8 +258,7 @@ func (td *TmuxDiscovery) getSessionWindows(sessionName string) ([]string, int, e
 	}
 
 	// Get pane count
-	paneCmd := execCommand("tmux", "list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}")
-	paneOutput, err := paneCmd.Output()
+	paneOutput, err := td.tmux.ListPanes(sessionName)
 	if err != nil {
 		return windowNames, 0, err
 	}
@@ -294,9 +316,9 @@ func (td *TmuxDiscovery) GetSessionStatus(sessionName string) (string, error) {
 		}
 
 		// Check for running indicators in the agent pane
-		if strings.Contains(content, "esc to interrupt") || 
-		   strings.Contains(content, "Thinking") || 
-		   strings.Contains(content, "Working") {
+		if strings.Contains(content, "esc to interrupt") ||
+			strings.Contains(content, "Thinking") ||
+			strings.Contains(content, "Working") {
 			return "running", nil
 		}
 	}
@@ -327,8 +349,7 @@ func (td *TmuxDiscovery) hasAgentWindow(sessionName string) bool {
 
 // getAgentWindowContent gets the content of the agent window/pane
 func (td *TmuxDiscovery) getAgentWindowContent(sessionName string) (string, error) {
-	cmd := execCommand("tmux", "capture-pane", "-t", sessionName+":agent", "-p")
-	output, err := cmd.Output()
+	output, err := td.tmux.CapturePane(sessionName)
 	if err != nil {
 		return "", err
 	}
@@ -344,13 +365,13 @@ func (td *TmuxDiscovery) RefreshCache() {
 func (td *TmuxDiscovery) FormatSessionActivity(activity string) string {
 	switch activity {
 	case "attached":
-		return "🔗"  // Link symbol for attached
+		return "🔗" // Link symbol for attached
 	case "active":
-		return "●"   // Dot for active
+		return "●" // Dot for active
 	case "inactive":
-		return "○"   // Empty circle for inactive
+		return "○" // Empty circle for inactive
 	default:
-		return "?"   // Unknown
+		return "?" // Unknown
 	}
 }
 
@@ -398,17 +419,18 @@ func (td *TmuxDiscovery) GetSessionMatchScore(tmuxSessionName, uziSessionName st
 		return 100 // Perfect match
 	}
 
+	// Check if one contains the other first (before agent extraction)
+	if strings.Contains(tmuxSessionName, uziSessionName) || strings.Contains(uziSessionName, tmuxSessionName) {
+		return 60 // Partial match (contains)
+	}
+
 	// Extract agent name from both and compare
 	tmuxAgent := extractAgentNameFromTmux(tmuxSessionName)
 	uziAgent := extractAgentNameFromTmux(uziSessionName)
-	
-	if tmuxAgent == uziAgent {
-		return 80 // Good match on agent name
-	}
 
-	// Check if one contains the other
-	if strings.Contains(tmuxSessionName, uziAgent) || strings.Contains(uziSessionName, tmuxAgent) {
-		return 60 // Partial match
+	// If both are proper agent sessions and have same agent name
+	if tmuxAgent != tmuxSessionName && uziAgent != uziSessionName && tmuxAgent == uziAgent {
+		return 80 // Good match on agent name
 	}
 
 	return 0 // No match

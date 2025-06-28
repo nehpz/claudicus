@@ -1,5 +1,2 @@
-# Development environment setup
-devCommand: go mod download
-
-# Port range for agent development servers (when agents run web services)
-portRange: 3050-3060
+devCommand: go run . tui --port $PORT
+portRange: 3000-3010

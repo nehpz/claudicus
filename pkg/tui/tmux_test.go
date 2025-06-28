@@ -10,6 +10,46 @@ import (
 	"github.com/nehpz/claudicus/pkg/testutil/cmdmock"
 )
 
+// TmuxMock implements TmuxInterface for testing
+type TmuxMock struct {
+	ListSessionsFunc func() ([]byte, error)
+	ListWindowsFunc  func(sessionName string) ([]byte, error)
+	ListPanesFunc    func(sessionName string) ([]byte, error)
+	CapturePaneFunc  func(sessionName string) ([]byte, error)
+}
+
+// ListSessions calls the mock function
+func (m *TmuxMock) ListSessions() ([]byte, error) {
+	if m.ListSessionsFunc != nil {
+		return m.ListSessionsFunc()
+	}
+	return nil, nil
+}
+
+// ListWindows calls the mock function
+func (m *TmuxMock) ListWindows(sessionName string) ([]byte, error) {
+	if m.ListWindowsFunc != nil {
+		return m.ListWindowsFunc(sessionName)
+	}
+	return nil, nil
+}
+
+// ListPanes calls the mock function
+func (m *TmuxMock) ListPanes(sessionName string) ([]byte, error) {
+	if m.ListPanesFunc != nil {
+		return m.ListPanesFunc(sessionName)
+	}
+	return nil, nil
+}
+
+// CapturePane calls the mock function
+func (m *TmuxMock) CapturePane(sessionName string) ([]byte, error) {
+	if m.CapturePaneFunc != nil {
+		return m.CapturePaneFunc(sessionName)
+	}
+	return nil, nil
+}
+
 // Helper function to strip cmdmock's -n prefix from output
 // This accounts for cmdmock using 'echo -n' which adds '-n ' to the beginning
 func stripCmdmockPrefix(s string) string {
@@ -49,34 +89,34 @@ func TestNewTmuxDiscovery(t *testing.T) {
 // Test session discovery with valid tmux output
 func TestGetAllSessions_Success(t *testing.T) {
 	setUp()
-	
-	// Mock tmux list-sessions command with proper session data
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"session1|2|1|1640000000|1640000010", "", false)
-	
-	// Mock tmux list-windows command  
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session1", "-F", "#{window_name}"}, 
-		"agent\ndev", "", false)
-	
-	// Mock tmux list-panes command
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session1", "-a", "-F", "#{pane_id}"}, 
-		"%0\n%1", "", false)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("session1|2|1|1640000000|1640000010"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			return []byte("agent\ndev"), nil
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			return []byte("%0\n%1"), nil
+		},
+	}
+
 	sessions, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	if len(sessions) != 1 {
 		t.Fatalf("Expected 1 session, got %d", len(sessions))
 	}
-	
+
 	session, exists := sessions["session1"]
 	if !exists {
 		t.Fatal("Expected session1 to exist")
 	}
-	
+
 	// Verify session details
 	if session.Name != "session1" {
 		t.Errorf("Expected name 'session1', got '%s'", session.Name)
@@ -104,47 +144,55 @@ func TestGetAllSessions_Success(t *testing.T) {
 // Test session discovery with multiple sessions
 func TestGetAllSessions_MultipleSessions(t *testing.T) {
 	setUp()
-	
-	// Mock multiple sessions with different states
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"attached-session|1|1|1640000000|1640000000\ndetached-session|2|0|1640000000|1640000000\nactive-session|1|0|1640000000|1640000290", "", false)
-	
-	// Mock window calls for each session
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "attached-session", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "detached-session", "-F", "#{window_name}"}, 
-		"bash\nhtop", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "active-session", "-F", "#{window_name}"}, 
-		"work", "", false)
-	
-	// Mock pane calls
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "attached-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "detached-session", "-a", "-F", "#{pane_id}"}, 
-		"%0\n%1", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "active-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("attached-session|1|1|1640000000|1640000000\ndetached-session|2|0|1640000000|1640000000\nactive-session|1|0|1640000000|1640000290"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "attached-session":
+				return []byte("main"), nil
+			case "detached-session":
+				return []byte("bash\nhtop"), nil
+			case "active-session":
+				return []byte("work"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "attached-session":
+				return []byte("%0"), nil
+			case "detached-session":
+				return []byte("%0\n%1"), nil
+			case "active-session":
+				return []byte("%0"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+	}
+
 	sessions, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	if len(sessions) != 3 {
 		t.Fatalf("Expected 3 sessions, got %d", len(sessions))
 	}
-	
+
 	// Check attached session
 	if session := sessions["attached-session"]; !session.Attached || session.Activity != "attached" {
 		t.Errorf("Attached session state incorrect: attached=%v, activity=%s", session.Attached, session.Activity)
 	}
-	
+
 	// Check detached session
 	if session := sessions["detached-session"]; session.Attached || session.Activity != "inactive" {
 		t.Errorf("Detached session state incorrect: attached=%v, activity=%s", session.Attached, session.Activity)
 	}
-	
+
 	// Check active session (recent activity)
 	if session := sessions["active-session"]; session.Attached || session.Activity != "active" {
 		t.Errorf("Active session state incorrect: attached=%v, activity=%s", session.Attached, session.Activity)
@@ -154,12 +202,14 @@ func TestGetAllSessions_MultipleSessions(t *testing.T) {
 // Test when tmux command fails (no sessions exist)
 func TestGetAllSessions_NoSessions(t *testing.T) {
 	setUp()
-	
-	// Mock tmux list-sessions command to return error (no sessions)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"", "no server running", true)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return nil, fmt.Errorf("no server running")
+		},
+	}
+
 	sessions, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Should not error when no sessions exist: %v", err)
@@ -172,12 +222,14 @@ func TestGetAllSessions_NoSessions(t *testing.T) {
 // Test tmux not installed
 func TestGetAllSessions_TmuxNotInstalled(t *testing.T) {
 	setUp()
-	
-	// Mock tmux command not found
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"", "command not found: tmux", true)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return nil, fmt.Errorf("command not found: tmux")
+		},
+	}
+
 	sessions, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Should handle tmux not found gracefully: %v", err)
@@ -190,42 +242,44 @@ func TestGetAllSessions_TmuxNotInstalled(t *testing.T) {
 // Test caching functionality
 func TestGetAllSessions_Caching(t *testing.T) {
 	setUp()
-	
-	// Mock first call
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"session1|1|0|1640000000|1640000000", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session1", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session1", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
+
+	callCount := 0
 	td := NewTmuxDiscovery()
-	
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			callCount++
+			return []byte("session1|1|0|1640000000|1640000000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			return []byte("main"), nil
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			return []byte("%0"), nil
+		},
+	}
+
 	// First call should hit tmux
 	sessions1, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("First call failed: %v", err)
 	}
-	
+
 	// Verify command was called
-	if !cmdmock.WasCommandCalled("tmux", "list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}") {
+	if callCount != 1 {
 		t.Error("Expected tmux command to be called")
 	}
-	
-	// Reset call tracking but keep responses
-	initialCallCount := cmdmock.GetCallCount()
-	
+
 	// Second call within cache time should use cache
 	sessions2, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Second call failed: %v", err)
 	}
-	
+
 	// Should be same data and no additional calls
 	if len(sessions1) != len(sessions2) {
 		t.Error("Cached result should be identical")
 	}
-	if cmdmock.GetCallCount() > initialCallCount {
+	if callCount > 1 {
 		t.Error("Second call should use cache, not call tmux again")
 	}
 }
@@ -233,12 +287,12 @@ func TestGetAllSessions_Caching(t *testing.T) {
 // Test cache refresh
 func TestRefreshCache(t *testing.T) {
 	setUp()
-	
+
 	td := NewTmuxDiscovery()
 	td.lastUpdate = time.Now() // Set recent update
-	
+
 	td.RefreshCache()
-	
+
 	if !td.lastUpdate.IsZero() {
 		t.Error("RefreshCache should reset lastUpdate to zero")
 	}
@@ -247,39 +301,47 @@ func TestRefreshCache(t *testing.T) {
 // Test Uzi session identification
 func TestGetUziSessions(t *testing.T) {
 	setUp()
-	
-	// Mock responses for mixed session types
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"agent-proj-abc123-claude|1|0|1640000000|1640000000\nregular-session|2|1|1640001000|1640001000\nuzi-dev-session|1|0|1640002000|1640002000", "", false)
-	
-	// Mock window calls - agent prefix session has agent window
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "agent-proj-abc123-claude", "-F", "#{window_name}"}, 
-		"agent", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "regular-session", "-F", "#{window_name}"}, 
-		"bash\nhtop", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "uzi-dev-session", "-F", "#{window_name}"}, 
-		"uzi-dev", "", false)
-	
-	// Mock pane calls
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "agent-proj-abc123-claude", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "regular-session", "-a", "-F", "#{pane_id}"}, 
-		"%0\n%1", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "uzi-dev-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("agent-proj-abc123-claude|1|0|1640000000|1640000000\nregular-session|2|1|1640001000|1640001000\nuzi-dev-session|1|0|1640002000|1640002000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "agent-proj-abc123-claude":
+				return []byte("agent"), nil
+			case "regular-session":
+				return []byte("bash\nhtop"), nil
+			case "uzi-dev-session":
+				return []byte("uzi-dev"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "agent-proj-abc123-claude":
+				return []byte("%0"), nil
+			case "regular-session":
+				return []byte("%0\n%1"), nil
+			case "uzi-dev-session":
+				return []byte("%0"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+	}
+
 	uziSessions, err := td.GetUziSessions()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	// Should return both Uzi sessions (agent prefix + uzi-dev window)
 	expectedCount := 2
 	if len(uziSessions) != expectedCount {
 		t.Errorf("Expected %d Uzi sessions, got %d", expectedCount, len(uziSessions))
 	}
-	
+
 	if _, exists := uziSessions["agent-proj-abc123-claude"]; !exists {
 		t.Error("Expected agent session to be identified as Uzi session")
 	}
@@ -294,7 +356,7 @@ func TestGetUziSessions(t *testing.T) {
 // Test Uzi session identification edge cases
 func TestIsUziSession_EdgeCases(t *testing.T) {
 	td := NewTmuxDiscovery()
-	
+
 	tests := []struct {
 		name        string
 		sessionName string
@@ -310,7 +372,7 @@ func TestIsUziSession_EdgeCases(t *testing.T) {
 		{"Regular session", "normal", []string{"bash", "vim"}, false},
 		{"Empty session", "empty", []string{}, false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			session := TmuxSessionInfo{WindowNames: tt.windowNames}
@@ -325,22 +387,20 @@ func TestIsUziSession_EdgeCases(t *testing.T) {
 // Test session status checks
 func TestIsSessionAttached(t *testing.T) {
 	setUp()
-	
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"attached-session|1|1|1640000000|1640000000\ndetached-session|1|0|1640000000|1640000000", "", false)
-	
-	// Mock window and pane calls
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "attached-session", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "detached-session", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "attached-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "detached-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
+
 	td := NewTmuxDiscovery()
-	
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("attached-session|1|1|1640000000|1640000000\ndetached-session|1|0|1640000000|1640000000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			return []byte("main"), nil
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			return []byte("%0"), nil
+		},
+	}
+
 	if !td.IsSessionAttached("attached-session") {
 		t.Error("Expected attached-session to be attached")
 	}
@@ -355,20 +415,25 @@ func TestIsSessionAttached(t *testing.T) {
 // Test session activity detection
 func TestGetSessionActivity(t *testing.T) {
 	setUp()
-	
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"test-session|1|0|1640000000|1640000000", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test-session", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("test-session|1|0|1640000000|1640000000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			return []byte("main"), nil
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			return []byte("%0"), nil
+		},
+	}
+
 	activity := td.GetSessionActivity("test-session")
 	if activity != "inactive" {
 		t.Errorf("Expected inactive activity, got %s", activity)
 	}
-	
+
 	// Test unknown session
 	activity = td.GetSessionActivity("unknown-session")
 	if activity != "inactive" {
@@ -379,11 +444,14 @@ func TestGetSessionActivity(t *testing.T) {
 // Test activity when tmux command fails
 func TestGetSessionActivity_TmuxError(t *testing.T) {
 	setUp()
-	
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"", "no server running", true)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return nil, fmt.Errorf("command not found: tmux")
+		},
+	}
+
 	activity := td.GetSessionActivity("any-session")
 	if activity != "unknown" {
 		t.Errorf("Expected unknown activity when tmux fails, got %s", activity)
@@ -393,7 +461,7 @@ func TestGetSessionActivity_TmuxError(t *testing.T) {
 // Test parsing functions
 func TestParseSessionLine(t *testing.T) {
 	td := NewTmuxDiscovery()
-	
+
 	tests := []struct {
 		name        string
 		input       string
@@ -436,22 +504,22 @@ func TestParseSessionLine(t *testing.T) {
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result, err := td.parseSessionLine(tt.input)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
-			
+
 			if result.Name != tt.expected.Name {
 				t.Errorf("Expected name %s, got %s", tt.expected.Name, result.Name)
 			}
@@ -472,7 +540,7 @@ func TestParseSessionLine(t *testing.T) {
 func TestParseSessionLine_ActivityClassification(t *testing.T) {
 	td := NewTmuxDiscovery()
 	now := time.Now().Unix()
-	
+
 	tests := []struct {
 		name             string
 		attached         string
@@ -484,7 +552,7 @@ func TestParseSessionLine_ActivityClassification(t *testing.T) {
 		{"Inactive (10 min ago)", "0", now - 600, "inactive"},
 		{"Very old session", "0", 1640000000, "inactive"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			input := fmt.Sprintf("session|1|%s|1640000000|%d", tt.attached, tt.lastActivityTime)
@@ -502,7 +570,7 @@ func TestParseSessionLine_ActivityClassification(t *testing.T) {
 // Test cmdmock behavior - we need to understand the output format
 func TestCmdmockBehavior(t *testing.T) {
 	setUp()
-	
+
 	// Test what cmdmock actually produces for empty output
 	cmdmock.SetResponseWithArgs("tmux", []string{"test-empty"}, "", "", false)
 	cmd := execCommand("tmux", "test-empty")
@@ -511,7 +579,7 @@ func TestCmdmockBehavior(t *testing.T) {
 		t.Fatalf("Command failed: %v", err)
 	}
 	t.Logf("Empty output: '%s'", string(output))
-	
+
 	// Test what cmdmock produces for non-empty output
 	cmdmock.SetResponseWithArgs("tmux", []string{"test-content"}, "hello", "", false)
 	cmd = execCommand("tmux", "test-content")
@@ -520,7 +588,7 @@ func TestCmdmockBehavior(t *testing.T) {
 		t.Fatalf("Command failed: %v", err)
 	}
 	t.Logf("Content output: '%s'", string(output))
-	
+
 	// Test with multiline
 	cmdmock.SetResponseWithArgs("tmux", []string{"test-multiline"}, "line1\nline2", "", false)
 	cmd = execCommand("tmux", "test-multiline")
@@ -534,7 +602,7 @@ func TestCmdmockBehavior(t *testing.T) {
 // Test window and pane parsing
 func TestGetSessionWindows(t *testing.T) {
 	setUp()
-	
+
 	tests := []struct {
 		name                string
 		sessionName         string
@@ -577,66 +645,63 @@ func TestGetSessionWindows(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "Pane command fails",
-			sessionName: "fail-panes",
-			windowOutput: "main",
-			paneError:   true,
+			name:                "Pane command fails",
+			sessionName:         "fail-panes",
+			windowOutput:        "main",
+			paneError:           true,
 			expectedWindowNames: []string{"main"},
 			expectedPaneCount:   0,
-			expectError: true,
+			expectError:         true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setUp()
-			
-			// Mock window command
-			if tt.windowError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", tt.sessionName, "-F", "#{window_name}"}, 
-					"", "session not found", true)
-			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", tt.sessionName, "-F", "#{window_name}"}, 
-					tt.windowOutput, "", false)
-			}
-			
-			// Mock pane command
-			if tt.paneError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", tt.sessionName, "-a", "-F", "#{pane_id}"}, 
-					"", "session not found", true)
-			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", tt.sessionName, "-a", "-F", "#{pane_id}"}, 
-					tt.paneOutput, "", false)
-			}
-			
+
 			td := NewTmuxDiscovery()
+			td.tmux = &TmuxMock{
+				ListWindowsFunc: func(sessionName string) ([]byte, error) {
+					if tt.windowError {
+						return nil, fmt.Errorf("session not found")
+					}
+					return []byte(tt.windowOutput), nil
+				},
+				ListPanesFunc: func(sessionName string) ([]byte, error) {
+					if tt.paneError {
+						return nil, fmt.Errorf("session not found")
+					}
+					return []byte(tt.paneOutput), nil
+				},
+			}
+
 			windowNames, paneCount, err := td.getSessionWindows(tt.sessionName)
-			
+
 			// Log what we got for debugging
 			t.Logf("Test %s: got windows=%v, panes=%d, err=%v", tt.name, windowNames, paneCount, err)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
-			
+
 			if len(windowNames) != len(tt.expectedWindowNames) {
 				t.Errorf("Expected %d window names, got %d: %v", len(tt.expectedWindowNames), len(windowNames), windowNames)
 			}
-			
+
 			for i, expected := range tt.expectedWindowNames {
 				if i >= len(windowNames) || windowNames[i] != expected {
 					t.Errorf("Expected window name %s at index %d, got %v", expected, i, windowNames)
 					break
 				}
 			}
-			
+
 			if paneCount != tt.expectedPaneCount {
 				t.Errorf("Expected %d panes, got %d", tt.expectedPaneCount, paneCount)
 			}
@@ -647,45 +712,48 @@ func TestGetSessionWindows(t *testing.T) {
 // Test session mapping functionality
 func TestMapUziSessionsToTmux(t *testing.T) {
 	setUp()
-	
-	// Mock tmux sessions
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"agent-proj-abc123-claude|1|1|1640000000|1640000000\nother-session|1|0|1640000000|1640000000", "", false)
-	
-	// Mock window and pane calls
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "agent-proj-abc123-claude", "-F", "#{window_name}"}, 
-		"agent", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "other-session", "-F", "#{window_name}"}, 
-		"bash", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "agent-proj-abc123-claude", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "other-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
+
 	td := NewTmuxDiscovery()
-	
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("agent-proj-abc123-claude|1|1|1640000000|1640000000\nother-session|1|0|1640000000|1640000000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "agent-proj-abc123-claude":
+				return []byte("agent"), nil
+			case "other-session":
+				return []byte("bash"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			return []byte("%0"), nil
+		},
+	}
+
 	// Test with matching session
 	uziSessions := []SessionInfo{
 		{Name: "agent-proj-abc123-claude"},
 		{Name: "missing-session"},
 	}
-	
+
 	sessionMap, err := td.MapUziSessionsToTmux(uziSessions)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	if len(sessionMap) != 2 {
 		t.Errorf("Expected 2 mapped sessions, got %d", len(sessionMap))
 	}
-	
+
 	// Check existing session
 	if session, exists := sessionMap["agent-proj-abc123-claude"]; !exists {
 		t.Error("Expected agent session to be mapped")
 	} else if !session.Attached {
 		t.Error("Expected mapped session to show attached state")
 	}
-	
+
 	// Check missing session (should have placeholder)
 	if session, exists := sessionMap["missing-session"]; !exists {
 		t.Error("Expected missing session to have placeholder")
@@ -702,14 +770,15 @@ func TestMapUziSessionsToTmux(t *testing.T) {
 // Test when MapUziSessionsToTmux fails to get sessions
 func TestMapUziSessionsToTmux_Error(t *testing.T) {
 	setUp()
-	
-	// Mock tmux command failure
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"", "no server running", true)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return nil, fmt.Errorf("no server running")
+		},
+	}
 	uziSessions := []SessionInfo{{Name: "test-session"}}
-	
+
 	_, err := td.MapUziSessionsToTmux(uziSessions)
 	if err != nil {
 		t.Error("Should not error when tmux fails - should return empty map gracefully")
@@ -719,7 +788,7 @@ func TestMapUziSessionsToTmux_Error(t *testing.T) {
 // Test detailed session status detection
 func TestGetSessionStatus(t *testing.T) {
 	setUp()
-	
+
 	tests := []struct {
 		name           string
 		sessionName    string
@@ -807,44 +876,35 @@ func TestGetSessionStatus(t *testing.T) {
 			expectedStatus: "ready",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setUp()
-			
-			// Mock tmux list-sessions command
-			if tt.tmuxError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-					"", "no server running", true)
-			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-					tt.tmuxOutput, "", false)
-				
-				// Mock window and pane commands if needed
-				if tt.windowOutput != "" {
-					cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", tt.sessionName, "-F", "#{window_name}"}, 
-						tt.windowOutput, "", false)
-				}
-				if tt.paneOutput != "" {
-					cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", tt.sessionName, "-a", "-F", "#{pane_id}"}, 
-						tt.paneOutput, "", false)
-				}
-				
-				// Mock capture-pane command for agent window content
-				if tt.windowOutput == "agent" {
-					if tt.captureError {
-						cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", tt.sessionName + ":agent", "-p"}, 
-							"", "no such window", true)
-					} else {
-						cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", tt.sessionName + ":agent", "-p"}, 
-							tt.agentContent, "", false)
-					}
-				}
-			}
-			
+
 			td := NewTmuxDiscovery()
+			td.tmux = &TmuxMock{
+			ListSessionsFunc: func() ([]byte, error) {
+				if tt.tmuxError {
+					return nil, fmt.Errorf("command not found: tmux")
+				}
+				return []byte(tt.tmuxOutput), nil
+			},
+				ListWindowsFunc: func(sessionName string) ([]byte, error) {
+					return []byte(tt.windowOutput), nil
+				},
+				ListPanesFunc: func(sessionName string) ([]byte, error) {
+					return []byte(tt.paneOutput), nil
+				},
+				CapturePaneFunc: func(sessionName string) ([]byte, error) {
+					if tt.captureError {
+						return nil, fmt.Errorf("no such window")
+					}
+					return []byte(tt.agentContent), nil
+				},
+			}
+
 			status, err := td.GetSessionStatus(tt.sessionName)
-			
+
 			if tt.expectedStatus == "unknown" {
 				if err == nil {
 					t.Error("Expected error for unknown status")
@@ -854,7 +914,7 @@ func TestGetSessionStatus(t *testing.T) {
 					t.Fatalf("Unexpected error: %v", err)
 				}
 			}
-			
+
 			if status != tt.expectedStatus {
 				t.Errorf("Expected status '%s', got '%s'", tt.expectedStatus, status)
 			}
@@ -865,7 +925,7 @@ func TestGetSessionStatus(t *testing.T) {
 // Test agent window detection
 func TestHasAgentWindow(t *testing.T) {
 	setUp()
-	
+
 	tests := []struct {
 		name         string
 		sessionName  string
@@ -914,31 +974,29 @@ func TestHasAgentWindow(t *testing.T) {
 			expected:     false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setUp()
-			
-			if tt.tmuxError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-					"", "no server running", true)
-			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-					tt.tmuxOutput, "", false)
-				
-				if tt.windowOutput != "" {
-					cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", tt.sessionName, "-F", "#{window_name}"}, 
-						tt.windowOutput, "", false)
-				}
-				if tt.paneOutput != "" {
-					cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", tt.sessionName, "-a", "-F", "#{pane_id}"}, 
-						tt.paneOutput, "", false)
-				}
-			}
-			
+
 			td := NewTmuxDiscovery()
+			td.tmux = &TmuxMock{
+				ListSessionsFunc: func() ([]byte, error) {
+					if tt.tmuxError {
+						return nil, fmt.Errorf("no server running")
+					}
+					return []byte(tt.tmuxOutput), nil
+				},
+				ListWindowsFunc: func(sessionName string) ([]byte, error) {
+					return []byte(tt.windowOutput), nil
+				},
+				ListPanesFunc: func(sessionName string) ([]byte, error) {
+					return []byte(tt.paneOutput), nil
+				},
+			}
+
 			result := td.hasAgentWindow(tt.sessionName)
-			
+
 			if result != tt.expected {
 				t.Errorf("Expected hasAgentWindow to return %v, got %v", tt.expected, result)
 			}
@@ -949,18 +1007,18 @@ func TestHasAgentWindow(t *testing.T) {
 // Test agent window content retrieval
 func TestGetAgentWindowContent(t *testing.T) {
 	setUp()
-	
+
 	tests := []struct {
-		name           string
-		sessionName    string
+		name            string
+		sessionName     string
 		expectedContent string
-		expectError    bool
+		expectError     bool
 	}{
 		{
-			name:           "Successful content retrieval",
-			sessionName:    "agent-session",
+			name:            "Successful content retrieval",
+			sessionName:     "agent-session",
 			expectedContent: "$ echo hello\nhello\n$ ",
-			expectError:    false,
+			expectError:     false,
 		},
 		{
 			name:        "Command fails",
@@ -968,33 +1026,34 @@ func TestGetAgentWindowContent(t *testing.T) {
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setUp()
-			
-			if tt.expectError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", tt.sessionName + ":agent", "-p"}, 
-					"", "no such window", true)
-			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", tt.sessionName + ":agent", "-p"}, 
-					tt.expectedContent, "", false)
-			}
-			
+
 			td := NewTmuxDiscovery()
+			td.tmux = &TmuxMock{
+				CapturePaneFunc: func(sessionName string) ([]byte, error) {
+					if tt.expectError {
+						return nil, fmt.Errorf("no such window")
+					}
+					return []byte(tt.expectedContent), nil
+				},
+			}
+
 			content, err := td.getAgentWindowContent(tt.sessionName)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
-			
+
 			if content != tt.expectedContent {
 				t.Errorf("Expected content '%s', got '%s'", tt.expectedContent, content)
 			}
@@ -1005,7 +1064,7 @@ func TestGetAgentWindowContent(t *testing.T) {
 // Test activity symbol formatting
 func TestFormatSessionActivity(t *testing.T) {
 	td := NewTmuxDiscovery()
-	
+
 	tests := []struct {
 		activity string
 		expected string
@@ -1016,7 +1075,7 @@ func TestFormatSessionActivity(t *testing.T) {
 		{"unknown", "?"},
 		{"", "?"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("Activity_%s", tt.activity), func(t *testing.T) {
 			result := td.FormatSessionActivity(tt.activity)
@@ -1030,7 +1089,7 @@ func TestFormatSessionActivity(t *testing.T) {
 // Test attached session counting
 func TestGetAttachedSessionCount(t *testing.T) {
 	setUp()
-	
+
 	tests := []struct {
 		name          string
 		tmuxOutput    string
@@ -1057,51 +1116,44 @@ func TestGetAttachedSessionCount(t *testing.T) {
 		},
 		{
 			name:        "Tmux command fails",
+			tmuxOutput:  "", // Not used when expectError is true
 			expectError: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setUp()
-			
-			if tt.expectError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-					"", "no server running", true)
-			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-					tt.tmuxOutput, "", false)
-				
-				// Mock window and pane calls for each session
-				for _, line := range strings.Split(tt.tmuxOutput, "\n") {
-					if line == "" {
-						continue
-					}
-					parts := strings.Split(line, "|")
-					if len(parts) >= 1 {
-						sessionName := parts[0]
-						cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", sessionName, "-F", "#{window_name}"}, 
-							"main", "", false)
-						cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}"}, 
-							"%0", "", false)
-					}
-				}
-			}
-			
+
 			td := NewTmuxDiscovery()
+			td.tmux = &TmuxMock{
+			ListSessionsFunc: func() ([]byte, error) {
+				if tt.expectError {
+					return nil, fmt.Errorf("command not found: tmux")
+				}
+				return []byte(tt.tmuxOutput), nil
+			},
+				ListWindowsFunc: func(sessionName string) ([]byte, error) {
+					return []byte("main"), nil
+				},
+				ListPanesFunc: func(sessionName string) ([]byte, error) {
+					return []byte("%0"), nil
+				},
+			}
+
 			count, err := td.GetAttachedSessionCount()
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
 			}
-			
+
 			if count != tt.expectedCount {
 				t.Errorf("Expected %d attached sessions, got %d", tt.expectedCount, count)
 			}
@@ -1112,41 +1164,40 @@ func TestGetAttachedSessionCount(t *testing.T) {
 // Test session grouping by activity
 func TestListSessionsByActivity(t *testing.T) {
 	setUp()
-	
-	// Mock mixed Uzi sessions with different activities
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"agent-proj1-abc-claude|1|1|1640000000|1640000000\nagent-proj2-def-claude|1|0|1640000000|1640000290\nagent-proj3-ghi-claude|1|0|1640000000|1640000000\nregular-session|1|0|1640000000|1640000000", "", false)
-	
-	// Mock window calls for each session
-	sessionNames := []string{"agent-proj1-abc-claude", "agent-proj2-def-claude", "agent-proj3-ghi-claude", "regular-session"}
-	for _, sessionName := range sessionNames {
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", sessionName, "-F", "#{window_name}"}, 
-			"agent", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}"}, 
-			"%0", "", false)
-	}
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("agent-proj1-abc-claude|1|1|1640000000|1640000000\nagent-proj2-def-claude|1|0|1640000000|1640000290\nagent-proj3-ghi-claude|1|0|1640000000|1640000000\nregular-session|1|0|1640000000|1640000000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			return []byte("agent"), nil
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			return []byte("%0"), nil
+		},
+	}
+
 	grouped, err := td.ListSessionsByActivity()
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	// Should have 3 groups
 	if len(grouped) != 3 {
 		t.Errorf("Expected 3 activity groups, got %d", len(grouped))
 	}
-	
+
 	// Check attached group
 	if len(grouped["attached"]) != 1 {
 		t.Errorf("Expected 1 attached session, got %d", len(grouped["attached"]))
 	}
-	
+
 	// Check active group (recent activity)
 	if len(grouped["active"]) != 1 {
 		t.Errorf("Expected 1 active session, got %d", len(grouped["active"]))
 	}
-	
+
 	// Check inactive group
 	if len(grouped["inactive"]) != 1 {
 		t.Errorf("Expected 1 inactive session, got %d", len(grouped["inactive"]))
@@ -1156,11 +1207,11 @@ func TestListSessionsByActivity(t *testing.T) {
 // Test session match scoring
 func TestGetSessionMatchScore(t *testing.T) {
 	td := NewTmuxDiscovery()
-	
+
 	tests := []struct {
-		name         string
-		tmuxSession  string
-		uziSession   string
+		name          string
+		tmuxSession   string
+		uziSession    string
 		expectedScore int
 	}{
 		{"Perfect match", "agent-proj-abc123-claude", "agent-proj-abc123-claude", 100},
@@ -1170,7 +1221,7 @@ func TestGetSessionMatchScore(t *testing.T) {
 		{"No match", "agent-proj-abc123-claude", "agent-proj-def456-gpt4", 0},
 		{"No match - completely different", "regular-session", "other-session", 0},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			score := td.GetSessionMatchScore(tt.tmuxSession, tt.uziSession)
@@ -1194,7 +1245,7 @@ func TestExtractAgentNameFromTmux(t *testing.T) {
 		{"Agent prefix but too few parts", "agent-proj-abc", "agent-proj-abc"},
 		{"Empty session name", "", ""},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractAgentNameFromTmux(tt.sessionName)
@@ -1208,32 +1259,42 @@ func TestExtractAgentNameFromTmux(t *testing.T) {
 // Test error handling in discoverTmuxSessions with bad parse lines
 func TestDiscoverTmuxSessions_BadParseLines(t *testing.T) {
 	setUp()
-	
-	// Mix of good and bad session lines
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"good-session|1|0|1640000000|1640000000\nbad-line-too-few|parts\ngood-session2|2|1|1640000000|1640000000\n\nempty-line-ignored", "", false)
-	
-	// Mock window and pane calls for good sessions
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session2", "-F", "#{window_name}"}, 
-		"main\ndev", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session2", "-a", "-F", "#{pane_id}"}, 
-		"%0\n%1", "", false)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("good-session|1|0|1640000000|1640000000\nbad-line-too-few|parts\ngood-session2|2|1|1640000000|1640000000\n\nempty-line-ignored"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "good-session":
+				return []byte("main"), nil
+			case "good-session2":
+				return []byte("main\ndev"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			switch sessionName {
+			case "good-session":
+				return []byte("%0"), nil
+			case "good-session2":
+				return []byte("%0\n%1"), nil
+			}
+			return nil, fmt.Errorf("unexpected session name: %s", sessionName)
+		},
+	}
+
 	sessions, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Should not error with mixed good/bad lines: %v", err)
 	}
-	
+
 	// Should only have the good sessions
 	if len(sessions) != 2 {
 		t.Errorf("Expected 2 valid sessions, got %d", len(sessions))
 	}
-	
+
 	if _, exists := sessions["good-session"]; !exists {
 		t.Error("Expected good-session to exist")
 	}
@@ -1245,33 +1306,36 @@ func TestDiscoverTmuxSessions_BadParseLines(t *testing.T) {
 // Test error handling when window/pane commands fail but session parsing succeeds
 func TestDiscoverTmuxSessions_WindowPaneErrors(t *testing.T) {
 	setUp()
-	
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
-		"good-session|1|0|1640000000|1640000000\nfail-session|1|1|1640000000|1640000000", "", false)
-	
-	// Good session - window and pane commands succeed
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session", "-F", "#{window_name}"}, 
-		"main", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session", "-a", "-F", "#{pane_id}"}, 
-		"%0", "", false)
-	
-	// Fail session - window command fails
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "fail-session", "-F", "#{window_name}"}, 
-		"", "session not found", true)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "fail-session", "-a", "-F", "#{pane_id}"}, 
-		"", "session not found", true)
-	
+
 	td := NewTmuxDiscovery()
+	td.tmux = &TmuxMock{
+		ListSessionsFunc: func() ([]byte, error) {
+			return []byte("good-session|1|0|1640000000|1640000000\nfail-session|1|1|1640000000|1640000000"), nil
+		},
+		ListWindowsFunc: func(sessionName string) ([]byte, error) {
+			if sessionName == "fail-session" {
+				return nil, fmt.Errorf("session not found")
+			}
+			return []byte("main"), nil
+		},
+		ListPanesFunc: func(sessionName string) ([]byte, error) {
+			if sessionName == "fail-session" {
+				return nil, fmt.Errorf("session not found")
+			}
+			return []byte("%0"), nil
+		},
+	}
+
 	sessions, err := td.GetAllSessions()
 	if err != nil {
 		t.Fatalf("Should not error when window/pane commands fail: %v", err)
 	}
-	
+
 	// Should have both sessions, but fail-session should have empty window info
 	if len(sessions) != 2 {
 		t.Errorf("Expected 2 sessions, got %d", len(sessions))
 	}
-	
+
 	goodSession := sessions["good-session"]
 	if len(goodSession.WindowNames) != 1 || goodSession.WindowNames[0] != "main" {
 		t.Errorf("Expected good session to have window info: %v", goodSession.WindowNames)
@@ -1279,7 +1343,7 @@ func TestDiscoverTmuxSessions_WindowPaneErrors(t *testing.T) {
 	if goodSession.Panes != 1 {
 		t.Errorf("Expected good session to have 1 pane, got %d", goodSession.Panes)
 	}
-	
+
 	failSession := sessions["fail-session"]
 	if len(failSession.WindowNames) != 0 {
 		t.Errorf("Expected fail session to have no window info, got: %v", failSession.WindowNames)
@@ -1288,4 +1352,3 @@ func TestDiscoverTmuxSessions_WindowPaneErrors(t *testing.T) {
 		t.Errorf("Expected fail session to have 0 panes, got %d", failSession.Panes)
 	}
 }
-
