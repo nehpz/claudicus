@@ -22,20 +22,20 @@ type DiffViewMsg struct {
 
 // DiffView represents a git diff preview component
 type DiffView struct {
-	viewport      viewport.Model
-	sessionName   string
-	content       string
-	error         error
-	width         int
-	height        int
-	loading       bool
+	viewport    viewport.Model
+	sessionName string
+	content     string
+	error       error
+	width       int
+	height      int
+	loading     bool
 }
 
 // NewDiffView creates a new diff view component
 func NewDiffView(width, height int) *DiffView {
 	vp := viewport.New(width-2, height-4) // Account for borders and header
 	vp.Style = ClaudeSquadBaseStyle
-	
+
 	return &DiffView{
 		viewport: vp,
 		width:    width,
@@ -61,10 +61,10 @@ func (dv *DiffView) LoadSessionDiff(sessionName string) tea.Cmd {
 		dv.loading = false
 		return nil
 	}
-	
+
 	dv.sessionName = sessionName
 	dv.loading = true
-	
+
 	return func() tea.Msg {
 		content, err := dv.getGitDiff(sessionName)
 		return DiffViewMsg{
@@ -83,15 +83,15 @@ func (dv *DiffView) getGitDiff(sessionName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to get session state: %w", err)
 	}
-	
+
 	if sessionState.WorktreePath == "" {
 		return "No worktree path found for session", nil
 	}
-	
+
 	// Run git diff to get the changes
 	cmd := exec.Command("git", "diff", "HEAD")
 	cmd.Dir = sessionState.WorktreePath
-	
+
 	output, err := cmd.Output()
 	if err != nil {
 		// Try git diff --cached for staged changes
@@ -102,12 +102,12 @@ func (dv *DiffView) getGitDiff(sessionName string) (string, error) {
 			return "", fmt.Errorf("failed to get git diff: %w", err)
 		}
 	}
-	
+
 	content := string(output)
 	if content == "" {
 		return "No changes detected", nil
 	}
-	
+
 	return content, nil
 }
 
@@ -119,7 +119,7 @@ func (dv *DiffView) Update(msg tea.Msg) (*DiffView, tea.Cmd) {
 			dv.content = msg.Content
 			dv.error = msg.Error
 			dv.loading = false
-			
+
 			// Update viewport content
 			if msg.Error != nil {
 				errorContent := ClaudeSquadMutedStyle.Render(fmt.Sprintf("Error: %v", msg.Error))
@@ -131,11 +131,11 @@ func (dv *DiffView) Update(msg tea.Msg) (*DiffView, tea.Cmd) {
 			}
 		}
 		return dv, nil
-		
+
 	case tea.WindowSizeMsg:
 		dv.SetSize(msg.Width/2, msg.Height) // Split view takes half the width
 		return dv, nil
-		
+
 	default:
 		var cmd tea.Cmd
 		dv.viewport, cmd = dv.viewport.Update(msg)
@@ -148,10 +148,10 @@ func (dv *DiffView) styleDiff(content string) string {
 	if content == "" {
 		return ClaudeSquadMutedStyle.Render("No changes to display")
 	}
-	
+
 	lines := strings.Split(content, "\n")
 	styledLines := make([]string, len(lines))
-	
+
 	for i, line := range lines {
 		switch {
 		case strings.HasPrefix(line, "+++") || strings.HasPrefix(line, "---"):
@@ -174,7 +174,7 @@ func (dv *DiffView) styleDiff(content string) string {
 			styledLines[i] = ClaudeSquadMutedStyle.Render(line)
 		}
 	}
-	
+
 	return strings.Join(styledLines, "\n")
 }
 
@@ -183,30 +183,30 @@ func (dv *DiffView) View() string {
 	if dv.width == 0 || dv.height == 0 {
 		return ""
 	}
-	
+
 	// Create header
 	headerText := "Git Diff"
 	if dv.sessionName != "" {
 		headerText = fmt.Sprintf("Git Diff - %s", dv.sessionName)
 	}
-	
+
 	header := ClaudeSquadHeaderStyle.Render(headerText)
-	
+
 	// Show loading state
 	if dv.loading {
 		loadingText := ClaudeSquadMutedStyle.Render("Loading diff...")
 		return lipgloss.JoinVertical(lipgloss.Left, header, loadingText)
 	}
-	
+
 	// Show content
 	viewportView := dv.viewport.View()
-	
+
 	// Create bordered view
 	diffContent := lipgloss.JoinVertical(lipgloss.Left, header, viewportView)
-	
+
 	return ClaudeSquadBorderStyle.
-		Width(dv.width-2).
-		Height(dv.height-2).
+		Width(dv.width - 2).
+		Height(dv.height - 2).
 		Render(diffContent)
 }
 

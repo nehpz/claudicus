@@ -13,13 +13,13 @@ import (
 
 // DiffPreviewModel handles git diff display for agent sessions
 type DiffPreviewModel struct {
-	content       string
+	content        string
 	commitMessages string
-	changedFiles  string
-	error        string
-	width        int
-	height       int
-	showCommits   bool // Toggle to show commits and files or just diff
+	changedFiles   string
+	error          string
+	width          int
+	height         int
+	showCommits    bool // Toggle to show commits and files or just diff
 }
 
 // NewDiffPreviewModel creates a new diff preview model
@@ -193,7 +193,7 @@ func (m *DiffPreviewModel) View() string {
 		// Show diff content with syntax highlighting
 		formattedContent = m.formatDiffContent(m.content)
 	}
-	
+
 	// Join title and content
 	content := lipgloss.JoinVertical(lipgloss.Left, titleHeader, formattedContent)
 	return borderStyle.Render(content)

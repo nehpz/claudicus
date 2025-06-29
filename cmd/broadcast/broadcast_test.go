@@ -2093,8 +2093,9 @@ func TestCoverageBoost(t *testing.T) {
 					testCount++
 				}
 
-			t.Logf("Pattern %d Executor %d: %v", i, j, err)
-		})
+				t.Logf("Pattern %d Executor %d: %v", i, j, err)
+			})
+		}
 	}
 
 	t.Logf("Successfully executed %d coverage boost tests", testCount)

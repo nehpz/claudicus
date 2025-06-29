@@ -24,14 +24,14 @@ const (
 
 // AgentFormModel for creating new agents interactively
 type AgentFormModel struct {
-	agentType  textinput.Model
-	count      textinput.Model
-	prompt     textinput.Model
+	agentType   textinput.Model
+	count       textinput.Model
+	prompt      textinput.Model
 	currentStep FormStep
-	active     bool
-	error      string
-	width      int
-	height     int
+	active      bool
+	error       string
+	width       int
+	height      int
 }
 
 // NewAgentFormModel creates and initializes an AgentFormModel
@@ -39,11 +39,11 @@ func NewAgentFormModel() AgentFormModel {
 	agentType := textinput.NewModel()
 	agentType.Placeholder = "Agent type (claude, cursor, codex, gemini)"
 	agentType.Focus()
-	
+
 	count := textinput.NewModel()
 	count.Placeholder = "Number of agents (1-10)"
 	count.CharLimit = 2
-	
+
 	prompt := textinput.NewModel()
 	prompt.Placeholder = "Enter your prompt..."
 

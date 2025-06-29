@@ -30,7 +30,7 @@ func TestExecuteReset(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := executeReset(context.Background(), tt.args)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("executeReset() expected error, got nil")

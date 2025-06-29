@@ -145,7 +145,7 @@ func TestMetricsClassificationThresholds(t *testing.T) {
 			desc:     "Agent with no commits ever should be classified as idle",
 		},
 		{
-			name: "Idle_NilMetrics",
+			name:     "Idle_NilMetrics",
 			metrics:  nil,
 			expected: StatusIdle,
 			desc:     "Nil metrics should be classified as idle",
@@ -226,7 +226,7 @@ func TestMetricsClassificationBoundaryConditions(t *testing.T) {
 		expected Status
 	}{
 		{"59min59sec999ms", -59*time.Minute - 59*time.Second - 999*time.Millisecond, StatusWorking},
-		{"60min0sec0ms", -60*time.Minute, StatusWorking},
+		{"60min0sec0ms", -60 * time.Minute, StatusWorking},
 		{"60min0sec1ms", -60*time.Minute - 1*time.Millisecond, StatusIdle},
 		{"60min1sec", -60*time.Minute - 1*time.Second, StatusIdle},
 	}
@@ -255,9 +255,9 @@ func TestMetricsClassificationBoundaryConditions(t *testing.T) {
 		expected Status
 	}{
 		{"119min59sec999ms", -119*time.Minute - 59*time.Second - 999*time.Millisecond, StatusIdle},
-		{"120min0sec0ms", -120*time.Minute, StatusStuck},
+		{"120min0sec0ms", -120 * time.Minute, StatusStuck},
 		{"120min0sec1ms", -120*time.Minute - 1*time.Millisecond, StatusStuck},
-		{"121min", -121*time.Minute, StatusStuck},
+		{"121min", -121 * time.Minute, StatusStuck},
 	}
 
 	for _, tt := range twoHourTests {

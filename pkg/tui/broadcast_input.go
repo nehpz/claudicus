@@ -77,12 +77,12 @@ func (m *BroadcastInputModel) View() string {
 	// Create prompt style
 	promptStyle := ClaudeSquadAccentStyle.Copy().Bold(true)
 	inputStyle := ClaudeSquadBorderStyle.Copy().
-		Width(m.width - 2).
+		Width(m.width-2).
 		Padding(0, 1)
 
 	prompt := promptStyle.Render("Message: ")
 	input := m.textInput.View()
-	
+
 	content := prompt + input
 	return inputStyle.Render(content)
 }

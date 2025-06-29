@@ -289,12 +289,12 @@ func (m CheckpointModal) renderAgentSelection() string {
 			prefix = "▶ "
 			style = ClaudeSquadSelectedStyle
 		}
-		
+
 		status := agent.Status
 		if status == "" {
 			status = "unknown"
 		}
-		
+
 		line := fmt.Sprintf("%s%s (%s)", prefix, agent.AgentName, status)
 		items = append(items, style.Render(line))
 	}
@@ -307,7 +307,7 @@ func (m CheckpointModal) renderAgentSelection() string {
 
 func (m CheckpointModal) renderProgress() string {
 	var lines []string
-	
+
 	selectedAgent := ""
 	commitMsg := ""
 	if len(m.agents) > 0 && m.selectedIdx < len(m.agents) {

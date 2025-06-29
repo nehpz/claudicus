@@ -10,10 +10,10 @@ import (
 )
 
 type ModalMsg struct {
-	Confirmed     bool
-	AgentName     string
-	Prompt        string
-	Model         string
+	Confirmed        bool
+	AgentName        string
+	Prompt           string
+	Model            string
 	SpawnReplacement bool
 }
 
@@ -79,14 +79,14 @@ func (m *ConfirmationModal) Update(msg tea.Msg) (*ConfirmationModal, tea.Cmd) {
 					return ModalMsg{Confirmed: true, AgentName: m.requiredAgentName}
 				}
 			}
-			
+
 		case "esc":
 			m.visible = false
 			m.reset()
 			return m, func() tea.Msg {
 				return ModalMsg{Confirmed: false}
 			}
-			
+
 		case "tab":
 			// Switch between kill and replace modes in step 0
 			if m.currentStep == 0 {
@@ -98,7 +98,7 @@ func (m *ConfirmationModal) Update(msg tea.Msg) (*ConfirmationModal, tea.Cmd) {
 					m.message = "Kill Agent"
 				}
 			}
-			
+
 		default:
 			// Handle text input updates based on current step
 			var cmd tea.Cmd
@@ -129,7 +129,7 @@ func (m *ConfirmationModal) handleReplaceStep() (*ConfirmationModal, tea.Cmd) {
 		}
 		// Invalid agent name, stay on step 0
 		return m, nil
-		
+
 	case 1:
 		// Prompt input step
 		if strings.TrimSpace(m.promptInput.Value()) != "" {
@@ -140,7 +140,7 @@ func (m *ConfirmationModal) handleReplaceStep() (*ConfirmationModal, tea.Cmd) {
 		}
 		// Empty prompt, stay on step 1
 		return m, nil
-		
+
 	case 2:
 		// Model input step - complete the workflow
 		if strings.TrimSpace(m.modelInput.Value()) != "" {
@@ -162,7 +162,7 @@ func (m *ConfirmationModal) handleReplaceStep() (*ConfirmationModal, tea.Cmd) {
 		// Empty model, stay on step 2
 		return m, nil
 	}
-	
+
 	return m, nil
 }
 
@@ -184,13 +184,13 @@ func (m *ConfirmationModal) View() string {
 	// Create the modal content based on current step and mode
 	title := ClaudeSquadAccentStyle.Render("⚠️  " + m.message)
 	var content string
-	
+
 	// Step indicator
 	stepIndicator := ""
 	if m.mode == "replace" {
 		stepIndicator = ClaudeSquadMutedStyle.Render(fmt.Sprintf("Step %d of 3", m.currentStep+1))
 	}
-	
+
 	switch m.currentStep {
 	case 0:
 		// Agent name confirmation step
@@ -201,34 +201,34 @@ func (m *ConfirmationModal) View() string {
 		} else {
 			modeHint = ClaudeSquadMutedStyle.Render("[TAB] to switch to Kill Only mode")
 		}
-		
+
 		inputView := m.textInput.View()
 		escapeHint := ClaudeSquadMutedStyle.Render("(ESC to cancel)")
-		
+
 		contentParts := []string{title}
 		if stepIndicator != "" {
 			contentParts = append(contentParts, stepIndicator)
 		}
 		contentParts = append(contentParts, "", message, "", inputView, "", modeHint, escapeHint)
 		content = lipgloss.JoinVertical(lipgloss.Center, contentParts...)
-		
+
 	case 1:
 		// Prompt input step (replace mode only)
 		message := ClaudeSquadPrimaryStyle.Render("Enter prompt for replacement agent:")
 		inputView := m.promptInput.View()
 		hint := ClaudeSquadMutedStyle.Render("[ENTER] to continue | [ESC] to cancel")
-		
+
 		content = lipgloss.JoinVertical(lipgloss.Center, title, stepIndicator, "", message, "", inputView, "", hint)
-		
+
 	case 2:
 		// Model input step (replace mode only)
 		message := ClaudeSquadPrimaryStyle.Render("Enter model for replacement agent:")
 		inputView := m.modelInput.View()
 		hint := ClaudeSquadMutedStyle.Render("[ENTER] to execute | [ESC] to cancel")
-		
+
 		content = lipgloss.JoinVertical(lipgloss.Center, title, stepIndicator, "", message, "", inputView, "", hint)
 	}
-	
+
 	// Apply border with padding
 	return ClaudeSquadBorderStyle.Copy().
 		Width(70).

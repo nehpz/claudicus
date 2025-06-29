@@ -38,19 +38,19 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		cmdmock.Enable()
 
 		// Test scenario 1: Valid sessions with all variations
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"session1|2|1|1640000000|1640000010\\nsession2|1|0|1640000000|1640000000", "", false)
-		
+
 		// Mock window responses
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session1", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session1", "-F", "#{window_name}"},
 			"agent\\ndev", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session2", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session2", "-F", "#{window_name}"},
 			"main", "", false)
-		
-		// Mock pane responses  
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session1", "-a", "-F", "#{pane_id}"}, 
+
+		// Mock pane responses
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session1", "-a", "-F", "#{pane_id}"},
 			"%0\\n%1", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session2", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session2", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
 
 		td := NewTmuxDiscovery()
@@ -58,21 +58,21 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetAllSessions failed: %v", err)
 		}
-		
+
 		t.Logf("Got %d sessions", len(sessions))
 	})
 
-	// Test error handling scenarios 
+	// Test error handling scenarios
 	t.Run("Complete_ErrorHandling", func(t *testing.T) {
 		cmdmock.Reset()
 		cmdmock.Enable()
 
 		// Test tmux command failure
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"", "no server running", true)
 
 		td := NewTmuxDiscovery()
-		
+
 		// Test all error paths
 		sessions, err := td.GetAllSessions()
 		if err != nil {
@@ -87,7 +87,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 			t.Error("IsSessionAttached should return false on error")
 		}
 
-		// Test GetSessionActivity with error  
+		// Test GetSessionActivity with error
 		activity := td.GetSessionActivity("any-session")
 		if activity != "unknown" {
 			t.Errorf("GetSessionActivity should return 'unknown' on error, got %s", activity)
@@ -109,27 +109,27 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		cmdmock.Enable()
 
 		// Mix of sessions including all types that could be Uzi sessions
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"agent-proj-abc123-claude|1|0|1640000000|1640000000\\nregular-session|2|1|1640001000|1640001000\\nuzi-dev-session|1|0|1640002000|1640002000", "", false)
-		
+
 		// Mock windows for each session type
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "agent-proj-abc123-claude", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "agent-proj-abc123-claude", "-F", "#{window_name}"},
 			"agent", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "regular-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "regular-session", "-F", "#{window_name}"},
 			"bash\\nhtop", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "uzi-dev-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "uzi-dev-session", "-F", "#{window_name}"},
 			"uzi-dev", "", false)
-		
+
 		// Mock panes
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "agent-proj-abc123-claude", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "agent-proj-abc123-claude", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "regular-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "regular-session", "-a", "-F", "#{pane_id}"},
 			"%0\\n%1", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "uzi-dev-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "uzi-dev-session", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
 
 		td := NewTmuxDiscovery()
-		
+
 		// Test GetUziSessions
 		uziSessions, err := td.GetUziSessions()
 		if err != nil {
@@ -137,7 +137,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		}
 		t.Logf("Found %d Uzi sessions", len(uziSessions))
 
-		// Test ListSessionsByActivity  
+		// Test ListSessionsByActivity
 		grouped, err := td.ListSessionsByActivity()
 		if err != nil {
 			t.Errorf("ListSessionsByActivity failed: %v", err)
@@ -150,30 +150,30 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		cmdmock.Reset()
 		cmdmock.Enable()
 
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"test-session|1|1|1640000000|1640000000", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test-session", "-F", "#{window_name}"},
 			"main", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test-session", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
 
 		td := NewTmuxDiscovery()
-		
+
 		// Test with both matching and missing sessions
 		uziSessions := []SessionInfo{
 			{Name: "test-session"},
 			{Name: "missing-session"},
 		}
-		
+
 		sessionMap, err := td.MapUziSessionsToTmux(uziSessions)
 		if err != nil {
 			t.Fatalf("MapUziSessionsToTmux failed: %v", err)
 		}
-		
+
 		if len(sessionMap) != 2 {
 			t.Errorf("Expected 2 mapped sessions, got %d", len(sessionMap))
 		}
-		
+
 		// Verify placeholder behavior for missing session
 		if missing, exists := sessionMap["missing-session"]; exists {
 			if missing.Attached {
@@ -187,31 +187,31 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 
 	// Test session status detection scenarios
 	t.Run("Complete_SessionStatus", func(t *testing.T) {
-		cmdmock.Reset() 
+		cmdmock.Reset()
 		cmdmock.Enable()
 
 		// Test attached session
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"attached-session|1|1|1640000000|1640000000\\nagent-session|1|0|1640000000|1640000000\\nready-session|1|0|1640000000|1640000000", "", false)
-		
+
 		// Mock windows
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "attached-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "attached-session", "-F", "#{window_name}"},
 			"main", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "agent-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "agent-session", "-F", "#{window_name}"},
 			"agent", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "ready-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "ready-session", "-F", "#{window_name}"},
 			"bash", "", false)
-		
+
 		// Mock panes
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "attached-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "attached-session", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "agent-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "agent-session", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "ready-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "ready-session", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
-		
+
 		// Mock capture-pane for running detection
-		cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "agent-session:agent", "-p"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "agent-session:agent", "-p"},
 			"Thinking about your request...", "", false)
 
 		td := NewTmuxDiscovery()
@@ -238,7 +238,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		hasAgent := td.hasAgentWindow("agent-session")
 		t.Logf("hasAgentWindow result: %v", hasAgent)
 
-		// Test getAgentWindowContent 
+		// Test getAgentWindowContent
 		content, err := td.getAgentWindowContent("agent-session")
 		if err != nil {
 			t.Errorf("getAgentWindowContent failed: %v", err)
@@ -246,7 +246,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		t.Logf("Agent content: %s", content)
 
 		// Test getAgentWindowContent failure case
-		cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "missing:agent", "-p"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "missing:agent", "-p"},
 			"", "no such window", true)
 		_, err = td.getAgentWindowContent("missing")
 		if err == nil {
@@ -261,7 +261,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		// Test FormatSessionActivity with all possible inputs
 		activities := []string{"attached", "active", "inactive", "unknown", ""}
 		expected := []string{"🔗", "●", "○", "?", "?"}
-		
+
 		for i, activity := range activities {
 			result := td.FormatSessionActivity(activity)
 			if result != expected[i] {
@@ -280,7 +280,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 			{"agent-proj-abc", "agent-proj-abc"},
 			{"", ""},
 		}
-		
+
 		for _, tt := range nameTests {
 			result := extractAgentNameFromTmux(tt.input)
 			if result != tt.expected {
@@ -301,7 +301,7 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 			{"agent-proj-abc123-claude", "agent-proj-def456-gpt4", 0},     // No match
 			{"regular-session", "other-session", 0},                       // No match - completely different
 		}
-		
+
 		for _, tt := range scoreTests {
 			score := td.GetSessionMatchScore(tt.tmux, tt.uzi)
 			// Don't fail on this specific test case that's failing due to implementation detail
@@ -314,11 +314,11 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		cmdmock.Reset()
 		cmdmock.Enable()
 
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"session1|1|0|1640000000|1640000000", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session1", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "session1", "-F", "#{window_name}"},
 			"main", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session1", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "session1", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
 
 		td := NewTmuxDiscovery()
@@ -376,20 +376,20 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 
 		for _, scenario := range scenarios {
 			sessionName := "test-" + scenario.name
-			
+
 			if scenario.windowError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", sessionName, "-F", "#{window_name}"}, 
+				cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", sessionName, "-F", "#{window_name}"},
 					"", "error", true)
 			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", sessionName, "-F", "#{window_name}"}, 
+				cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", sessionName, "-F", "#{window_name}"},
 					scenario.windowOutput, "", false)
 			}
-			
+
 			if scenario.paneError {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}"}, 
+				cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}"},
 					"", "error", true)
 			} else {
-				cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}"}, 
+				cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", sessionName, "-a", "-F", "#{pane_id}"},
 					scenario.paneOutput, "", false)
 			}
 
@@ -404,14 +404,14 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 
 		// Test parseSessionLine with all scenarios
 		parseTests := []struct {
-			input    string
+			input     string
 			shouldErr bool
 		}{
 			{"session1|2|1|1640000000|1640000100", false},
 			{"session2|1|0|1640000000|1640000000", false},
-			{"session1|2|1", true},                                       // Too few parts
-			{"session1|2|1|1640000000|1640000000|extra", true},           // Too many parts  
-			{"", true},                                                   // Empty
+			{"session1|2|1", true},                             // Too few parts
+			{"session1|2|1|1640000000|1640000000|extra", true}, // Too many parts
+			{"", true}, // Empty
 		}
 
 		for _, tt := range parseTests {
@@ -436,32 +436,32 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 		cmdmock.Enable()
 
 		// Mix of good and bad lines
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"good-session|1|0|1640000000|1640000000\\nbad-line\\ngood-session2|2|1|1640000000|1640000000\\n\\nempty", "", false)
-		
+
 		// Mock valid sessions only
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session", "-F", "#{window_name}"},
 			"main", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session", "-a", "-F", "#{pane_id}"},
 			"%0", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session2", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "good-session2", "-F", "#{window_name}"},
 			"dev", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session2", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "good-session2", "-a", "-F", "#{pane_id}"},
 			"%0\\n%1", "", false)
 
 		// Test window/pane command failures during session discovery
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "fail-windows", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "fail-windows", "-F", "#{window_name}"},
 			"", "not found", true)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "fail-panes", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "fail-panes", "-a", "-F", "#{pane_id}"},
 			"", "not found", true)
 
 		td := NewTmuxDiscovery()
 		sessions, err := td.GetAllSessions()
-		
+
 		if err != nil {
 			t.Fatalf("Should handle bad lines gracefully: %v", err)
 		}
-		
+
 		t.Logf("Parsed %d sessions from mixed data", len(sessions))
 	})
 
@@ -478,12 +478,12 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 			windows []string
 			isUzi   bool
 		}{
-			{"agent-proj-hash-claude", []string{"main"}, true},     // Agent prefix
-			{"agent-proj-hash", []string{"main"}, false},          // Too few parts
-			{"some-session", []string{"agent"}, true},             // Agent window
-			{"some-session", []string{"uzi-dev"}, true},           // Uzi-dev window  
-			{"normal", []string{"bash", "vim"}, false},            // Regular
-			{"empty", []string{}, false},                          // Empty
+			{"agent-proj-hash-claude", []string{"main"}, true}, // Agent prefix
+			{"agent-proj-hash", []string{"main"}, false},       // Too few parts
+			{"some-session", []string{"agent"}, true},          // Agent window
+			{"some-session", []string{"uzi-dev"}, true},        // Uzi-dev window
+			{"normal", []string{"bash", "vim"}, false},         // Regular
+			{"empty", []string{}, false},                       // Empty
 		}
 
 		for _, tt := range sessionTests {
@@ -501,9 +501,9 @@ func TestTmuxCoverage_Complete(t *testing.T) {
 			lastTime int64
 			activity string
 		}{
-			{"1", now, "attached"},        // Attached
-			{"0", now - 120, "active"},    // Recent
-			{"0", now - 600, "inactive"},  // Old
+			{"1", now, "attached"},       // Attached
+			{"0", now - 120, "active"},   // Recent
+			{"0", now - 600, "inactive"}, // Old
 		}
 
 		for _, tt := range timeTests {
@@ -528,11 +528,11 @@ func TestStatusDetectionComplete(t *testing.T) {
 	cmdmock.Enable()
 
 	// Setup session with agent window containing various content
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 		"test-session|1|0|1640000000|1640000000", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test-session", "-F", "#{window_name}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test-session", "-F", "#{window_name}"},
 		"agent", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test-session", "-a", "-F", "#{pane_id}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test-session", "-a", "-F", "#{pane_id}"},
 		"%0", "", false)
 
 	td := NewTmuxDiscovery()
@@ -546,9 +546,9 @@ func TestStatusDetectionComplete(t *testing.T) {
 	}
 
 	for _, content := range contentTests {
-		cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "test-session:agent", "-p"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "test-session:agent", "-p"},
 			content, "", false)
-		
+
 		status, err := td.GetSessionStatus("test-session")
 		if err != nil {
 			t.Errorf("GetSessionStatus failed for content '%s': %v", content, err)
@@ -568,14 +568,14 @@ func TestRemainingEdgeCases(t *testing.T) {
 		cmdmock.Reset()
 		cmdmock.Enable()
 
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "empty-test", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "empty-test", "-F", "#{window_name}"},
 			"", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "empty-test", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "empty-test", "-a", "-F", "#{pane_id}"},
 			"", "", false)
 
 		td := NewTmuxDiscovery()
 		windowNames, paneCount, err := td.getSessionWindows("empty-test")
-		
+
 		if err != nil {
 			t.Errorf("getSessionWindows failed: %v", err)
 		}
@@ -587,14 +587,14 @@ func TestRemainingEdgeCases(t *testing.T) {
 		cmdmock.Reset()
 		cmdmock.Enable()
 
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test", "-F", "#{window_name}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-windows", "-t", "test", "-F", "#{window_name}"},
 			"main", "", false)
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test", "-a", "-F", "#{pane_id}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-panes", "-t", "test", "-a", "-F", "#{pane_id}"},
 			"", "", false)
 
 		td := NewTmuxDiscovery()
 		_, paneCount, err := td.getSessionWindows("test")
-		
+
 		if err != nil {
 			t.Errorf("getSessionWindows failed: %v", err)
 		}
@@ -607,12 +607,12 @@ func TestRemainingEdgeCases(t *testing.T) {
 		cmdmock.Enable()
 
 		// Make GetAllSessions fail
-		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+		cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 			"", "server error", true)
 
 		td := NewTmuxDiscovery()
 		uziSessions := []SessionInfo{{Name: "test"}}
-		
+
 		// Should not error but return empty map
 		sessionMap, err := td.MapUziSessionsToTmux(uziSessions)
 		if err != nil {

@@ -13,13 +13,13 @@ import (
 func TestUziCLIInterface(t *testing.T) {
 	// Verify that UziCLI implements UziInterface at compile time
 	var _ UziInterface = (*UziCLI)(nil)
-	
+
 	// Test that we can create an instance and call interface methods
 	cli := NewUziCLI()
 	if cli == nil {
 		t.Fatal("Expected UziCLI instance, got nil")
 	}
-	
+
 	// Test GetSessions method exists (will fail without actual uzi command, but that's expected)
 	_, err := cli.GetSessions()
 	if err == nil {
@@ -31,7 +31,7 @@ func TestUziCLIInterface(t *testing.T) {
 		}
 		t.Logf("GetSessions failed as expected in test environment: %v", err)
 	}
-	
+
 	// Test error cases
 	err = cli.RefreshSessions()
 	if err != nil {
@@ -42,7 +42,7 @@ func TestUziCLIInterface(t *testing.T) {
 func TestProxyConsistency(t *testing.T) {
 	// Verify that all proxy methods follow the consistent pattern
 	cli := NewUziCLI()
-	
+
 	// These should all return wrapped errors in test environment
 	methods := []func() error{
 		func() error { _, err := cli.GetSessions(); return err },
@@ -51,7 +51,7 @@ func TestProxyConsistency(t *testing.T) {
 		func() error { return cli.RunBroadcast("test message") },
 		func() error { return cli.RunCommand("echo test") },
 	}
-	
+
 	for i, method := range methods {
 		err := method()
 		if err != nil {
@@ -67,4 +67,3 @@ func TestProxyConsistency(t *testing.T) {
 func containsSubstring(str, substr string) bool {
 	return len(str) >= len(substr) && str[:len(substr)] == substr
 }
-

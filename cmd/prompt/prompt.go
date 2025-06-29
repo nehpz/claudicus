@@ -95,7 +95,6 @@ func getCommandForAgent(agent string) string {
 	}
 }
 
-
 // isPortAvailable checks if a port is available for use
 func isPortAvailable(port int) bool {
 	address := fmt.Sprintf(":%d", port)
@@ -112,7 +111,7 @@ func getExistingSessionPorts(stateManager *state.StateManager) ([]int, error) {
 	if stateManager == nil {
 		return []int{}, nil
 	}
-	
+
 	// Read the state file
 	stateFile := stateManager.GetStatePath()
 	data, err := os.ReadFile(stateFile)
@@ -123,13 +122,13 @@ func getExistingSessionPorts(stateManager *state.StateManager) ([]int, error) {
 		}
 		return nil, fmt.Errorf("failed to read state file: %w", err)
 	}
-	
+
 	// Parse the state file
 	states := make(map[string]state.AgentState)
 	if err := json.Unmarshal(data, &states); err != nil {
 		return nil, fmt.Errorf("failed to parse state file: %w", err)
 	}
-	
+
 	// Extract all assigned ports
 	var existingPorts []int
 	for _, agentState := range states {
@@ -137,7 +136,7 @@ func getExistingSessionPorts(stateManager *state.StateManager) ([]int, error) {
 			existingPorts = append(existingPorts, agentState.Port)
 		}
 	}
-	
+
 	return existingPorts, nil
 }
 
@@ -191,7 +190,7 @@ func executePrompt(ctx context.Context, args []string) error {
 		log.Warn("Failed to load existing session ports, proceeding without collision check", "error", err)
 		existingPorts = []int{}
 	}
-	
+
 	// Track assigned ports to prevent collisions between iterations and with existing sessions
 	assignedPorts := existingPorts
 
@@ -300,12 +299,12 @@ func executePrompt(ctx context.Context, args []string) error {
 				}
 
 				// Always run send-keys command to the agent pane
-			var tmuxCmd string
-			if commandToUse == "gemini" {
-				tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%%s\"' C-m", sessionName, commandToUse)
-			} else {
-				tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
-			}
+				var tmuxCmd string
+				if commandToUse == "gemini" {
+					tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%%s\"' C-m", sessionName, commandToUse)
+				} else {
+					tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+				}
 				tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
 				tmuxCmdExec.Dir = worktreePath
 				if err := tmuxCmdExec.Run(); err != nil {
@@ -370,12 +369,12 @@ func executePrompt(ctx context.Context, args []string) error {
 			assignedPorts = append(assignedPorts, selectedPort)
 
 			// Always run send-keys command to the agent pane
-            var tmuxCmd string
-            if commandToUse == "gemini" {
-                tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%%s\"' C-m", sessionName, commandToUse)
-            } else {
-                tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
-            }
+			var tmuxCmd string
+			if commandToUse == "gemini" {
+				tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s -p \"%%s\"' C-m", sessionName, commandToUse)
+			} else {
+				tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%%s\"' C-m", sessionName, commandToUse)
+			}
 			tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", fmt.Sprintf(tmuxCmd, promptText))
 			tmuxCmdExec.Dir = worktreePath
 			if err := tmuxCmdExec.Run(); err != nil {

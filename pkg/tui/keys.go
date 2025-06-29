@@ -15,21 +15,21 @@ type KeyMap struct {
 	Down  key.Binding
 	Left  key.Binding
 	Right key.Binding
-	
+
 	// Action keys
 	Enter  key.Binding
 	Escape key.Binding
-	Tab    key.Binding  // Toggle between list and split view
-	
+	Tab    key.Binding // Toggle between list and split view
+
 	// Configuration keys
-	Config key.Binding  // View/edit configuration file
-	
+	Config key.Binding // View/edit configuration file
+
 	// Agent management keys
-	Broadcast key.Binding  // Broadcast message to agents
-	
+	Broadcast key.Binding // Broadcast message to agents
+
 	// Diff preview keys
 	ToggleCommits key.Binding // Toggle between diff and commits/files view
-	
+
 	// Application actions
 	Help    key.Binding
 	Quit    key.Binding
@@ -39,12 +39,12 @@ type KeyMap struct {
 	Filter key.Binding
 	Clear  key.Binding
 	// Agent filtering keys
-	FilterStuck   key.Binding  // Toggle stuck agents filter
-	FilterWorking key.Binding  // Filter working agents
-	
+	FilterStuck   key.Binding // Toggle stuck agents filter
+	FilterWorking key.Binding // Filter working agents
+
 	// Agent management keys
-	Checkpoint key.Binding  // Create checkpoint for selected agent
-	NewAgent   key.Binding  // Create new agent interactively
+	Checkpoint key.Binding // Create checkpoint for selected agent
+	NewAgent   key.Binding // Create new agent interactively
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -67,7 +67,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("right", "l"),
 			key.WithHelp("→/l", "move right"),
 		),
-		
+
 		// Actions
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
@@ -81,14 +81,14 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("tab"),
 			key.WithHelp("tab", "toggle split view"),
 		),
-		
+
 		// Configuration
 		Config: key.NewBinding(
 			key.WithKeys("g"),
 			key.WithHelp("g", "edit config"),
 		),
-		
-// Agent management
+
+		// Agent management
 		Broadcast: key.NewBinding(
 			key.WithKeys("b"),
 			key.WithHelp("b", "broadcast message"),
@@ -97,13 +97,13 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("c"),
 			key.WithHelp("c", "checkpoint agent"),
 		),
-		
+
 		// Diff preview
 		ToggleCommits: key.NewBinding(
 			key.WithKeys("v"),
 			key.WithHelp("v", "toggle commits view"),
 		),
-		
+
 		// Application
 		Quit: key.NewBinding(
 			key.WithKeys("q", "ctrl+c"),
@@ -121,7 +121,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("k"),
 			key.WithHelp("k", "kill agent"),
 		),
-		
+
 		// List specific
 		Filter: key.NewBinding(
 			key.WithKeys("/"),
@@ -131,7 +131,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("x"),
 			key.WithHelp("x", "clear filter"),
 		),
-		
+
 		// Agent filtering
 		FilterStuck: key.NewBinding(
 			key.WithKeys("f"),
@@ -141,7 +141,7 @@ func DefaultKeyMap() KeyMap {
 			key.WithKeys("w"),
 			key.WithHelp("w", "filter working agents"),
 		),
-		
+
 		// Agent creation
 		NewAgent: key.NewBinding(
 			key.WithKeys("n"),
@@ -157,13 +157,13 @@ func (k KeyMap) ShortHelp() []key.Binding {
 
 // FullHelp returns keybindings for the expanded help view
 func (k KeyMap) FullHelp() [][]key.Binding {
-		return [][]key.Binding{
-			{k.Up, k.Down, k.Left, k.Right}, // Navigation
-			{k.Enter, k.Escape, k.Refresh, k.Kill},  // Actions
-			{k.Tab, k.ToggleCommits, k.Config, k.Broadcast, k.Checkpoint, k.NewAgent}, // Views & Agent management
-			{k.Filter, k.Clear, k.FilterStuck, k.FilterWorking}, // Filtering
-			{k.Help, k.Quit}, // Application
-		}
+	return [][]key.Binding{
+		{k.Up, k.Down, k.Left, k.Right},                                           // Navigation
+		{k.Enter, k.Escape, k.Refresh, k.Kill},                                    // Actions
+		{k.Tab, k.ToggleCommits, k.Config, k.Broadcast, k.Checkpoint, k.NewAgent}, // Views & Agent management
+		{k.Filter, k.Clear, k.FilterStuck, k.FilterWorking},                       // Filtering
+		{k.Help, k.Quit}, // Application
+	}
 }
 
 // CursorState represents the cursor position in a list

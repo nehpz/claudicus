@@ -50,7 +50,7 @@ func NewProgressModal() ProgressModal {
 func (m *ProgressModal) SetActive(active bool) {
 	m.active = active
 	if active {
-	m.currentStep = ProgressStepSetupWorktree
+		m.currentStep = ProgressStepSetupWorktree
 		m.error = ""
 		m.message = ""
 	}
@@ -94,7 +94,7 @@ func (m ProgressModal) Update(msg tea.Msg) (ProgressModal, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc", "q":
-		if m.currentStep == ProgressStepComplete || m.error != "" {
+			if m.currentStep == ProgressStepComplete || m.error != "" {
 				m.active = false
 				return m, nil
 			}
@@ -117,7 +117,7 @@ func (m ProgressModal) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(ClaudeSquadAccent).
 		Padding(1, 2).
-		Width(m.width/2).
+		Width(m.width / 2).
 		Align(lipgloss.Center)
 
 	title := ClaudeSquadPrimaryStyle.Bold(true).Render("Creating Agent")

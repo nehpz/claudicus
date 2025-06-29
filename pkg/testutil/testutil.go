@@ -18,7 +18,7 @@ type CommandRunner interface {
 
 // FakeCommandRunner implements CommandRunner for testing
 type FakeCommandRunner struct {
-	commands []CommandCall
+	commands  []CommandCall
 	responses map[string]CommandResponse
 	callCount int
 }
@@ -154,7 +154,7 @@ func (f *FakeTimeProvider) AdvanceTime(d time.Duration) {
 func MakeFakeTmuxListOutput(sessions []string) string {
 	var buf bytes.Buffer
 	for _, session := range sessions {
-		buf.WriteString(fmt.Sprintf("%s: 1 windows (created %s) [80x24]\n", 
+		buf.WriteString(fmt.Sprintf("%s: 1 windows (created %s) [80x24]\n",
 			session, time.Now().Format("Mon Jan 2 15:04:05 2006")))
 	}
 	return buf.String()

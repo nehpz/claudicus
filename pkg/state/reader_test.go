@@ -25,12 +25,12 @@ func TestNewStateReader(t *testing.T) {
 func TestLoadSessionsEmpty(t *testing.T) {
 	tmpDir := t.TempDir()
 	reader := NewStateReader(tmpDir)
-	
+
 	sessions, err := reader.LoadSessions()
 	if err != nil {
 		t.Errorf("Expected LoadSessions to succeed with no state file, got: %v", err)
 	}
-	
+
 	if sessions == nil {
 		t.Error("Expected sessions to be non-nil slice")
 	}
@@ -41,14 +41,14 @@ func TestLoadSessionsEmpty(t *testing.T) {
 
 func TestLoadSessionsWithData(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create .uzi directory
 	uziDir := filepath.Join(tmpDir, ".uzi")
 	err := os.MkdirAll(uziDir, 0755)
 	if err != nil {
 		t.Fatalf("Failed to create .uzi directory: %v", err)
 	}
-	
+
 	// Create test state data
 	now := time.Now()
 	states := map[string]AgentState{
@@ -65,7 +65,7 @@ func TestLoadSessionsWithData(t *testing.T) {
 		},
 		"agent-project-abc123-sarah": {
 			GitRepo:      "https://github.com/test/repo.git",
-			BranchFrom:   "main", 
+			BranchFrom:   "main",
 			BranchName:   "agent-sarah-bugfix",
 			Prompt:       "Fix login validation bug",
 			WorktreePath: "/tmp/test-worktree2",
@@ -75,36 +75,36 @@ func TestLoadSessionsWithData(t *testing.T) {
 			UpdatedAt:    now,
 		},
 	}
-	
+
 	// Write state file
 	statePath := filepath.Join(uziDir, "state.json")
 	data, err := json.MarshalIndent(states, "", "  ")
 	if err != nil {
 		t.Fatalf("Failed to marshal test data: %v", err)
 	}
-	
+
 	err = os.WriteFile(statePath, data, 0644)
 	if err != nil {
 		t.Fatalf("Failed to write state file: %v", err)
 	}
-	
+
 	// Test loading sessions
 	reader := NewStateReader(tmpDir)
 	sessions, err := reader.LoadSessions()
 	if err != nil {
 		t.Errorf("Expected LoadSessions to succeed, got: %v", err)
 	}
-	
+
 	if len(sessions) != 2 {
 		t.Errorf("Expected 2 sessions, got %d", len(sessions))
 	}
-	
+
 	// Verify session data
 	sessionMap := make(map[string]SessionInfo)
 	for _, session := range sessions {
 		sessionMap[session.SessionName] = session
 	}
-	
+
 	johnSession := sessionMap["agent-project-abc123-john"]
 	if johnSession.AgentName != "john" {
 		t.Errorf("Expected agent name 'john', got '%s'", johnSession.AgentName)
@@ -115,7 +115,7 @@ func TestLoadSessionsWithData(t *testing.T) {
 	if johnSession.Model != "claude-3-sonnet" {
 		t.Errorf("Expected model 'claude-3-sonnet', got '%s'", johnSession.Model)
 	}
-	
+
 	sarahSession := sessionMap["agent-project-abc123-sarah"]
 	if sarahSession.AgentName != "sarah" {
 		t.Errorf("Expected agent name 'sarah', got '%s'", sarahSession.AgentName)
@@ -127,21 +127,21 @@ func TestLoadSessionsWithData(t *testing.T) {
 
 func TestLoadSessionsInvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create .uzi directory
 	uziDir := filepath.Join(tmpDir, ".uzi")
 	err := os.MkdirAll(uziDir, 0755)
 	if err != nil {
 		t.Fatalf("Failed to create .uzi directory: %v", err)
 	}
-	
+
 	// Write invalid JSON
 	statePath := filepath.Join(uziDir, "state.json")
 	err = os.WriteFile(statePath, []byte("invalid json"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write invalid state file: %v", err)
 	}
-	
+
 	// Test loading sessions
 	reader := NewStateReader(tmpDir)
 	_, err = reader.LoadSessions()
@@ -152,7 +152,7 @@ func TestLoadSessionsInvalidJSON(t *testing.T) {
 
 func TestExtractAgentName(t *testing.T) {
 	reader := NewStateReader("/test")
-	
+
 	tests := []struct {
 		sessionName string
 		expected    string
@@ -165,7 +165,7 @@ func TestExtractAgentName(t *testing.T) {
 		{"agent-only-two-parts", "parts"},
 		{"", ""},
 	}
-	
+
 	for _, test := range tests {
 		result := reader.extractAgentName(test.sessionName)
 		if result != test.expected {
@@ -176,11 +176,11 @@ func TestExtractAgentName(t *testing.T) {
 
 func TestParseGitDiffStats(t *testing.T) {
 	reader := NewStateReader("/test")
-	
+
 	tests := []struct {
-		output              string
-		expectedInsertions  int
-		expectedDeletions   int
+		output             string
+		expectedInsertions int
+		expectedDeletions  int
 	}{
 		{
 			" 3 files changed, 45 insertions(+), 12 deletions(-)",
@@ -207,7 +207,7 @@ func TestParseGitDiffStats(t *testing.T) {
 			0, 0,
 		},
 	}
-	
+
 	for _, test := range tests {
 		insertions, deletions := reader.parseGitDiffStats(test.output)
 		if insertions != test.expectedInsertions {
@@ -221,7 +221,7 @@ func TestParseGitDiffStats(t *testing.T) {
 
 func TestGetGitDiffStatsEmptyPath(t *testing.T) {
 	reader := NewStateReader("/test")
-	
+
 	insertions, deletions := reader.getGitDiffStats("")
 	if insertions != 0 || deletions != 0 {
 		t.Errorf("Expected 0,0 for empty worktree path, got %d,%d", insertions, deletions)
@@ -230,7 +230,7 @@ func TestGetGitDiffStatsEmptyPath(t *testing.T) {
 
 func TestGetGitDiffStatsNonExistentPath(t *testing.T) {
 	reader := NewStateReader("/test")
-	
+
 	insertions, deletions := reader.getGitDiffStats("/non/existent/path")
 	if insertions != 0 || deletions != 0 {
 		t.Errorf("Expected 0,0 for non-existent worktree path, got %d,%d", insertions, deletions)
@@ -240,12 +240,12 @@ func TestGetGitDiffStatsNonExistentPath(t *testing.T) {
 func TestGetActiveSessionsEmpty(t *testing.T) {
 	tmpDir := t.TempDir()
 	reader := NewStateReader(tmpDir)
-	
+
 	sessions, err := reader.GetActiveSessions()
 	if err != nil {
 		t.Errorf("Expected GetActiveSessions to succeed with empty state, got: %v", err)
 	}
-	
+
 	// Allow both nil and empty slice since LoadSessions returns empty slice when no state file
 	if sessions != nil && len(sessions) != 0 {
 		t.Error("Expected empty or nil active sessions when no state file exists")
@@ -254,14 +254,14 @@ func TestGetActiveSessionsEmpty(t *testing.T) {
 
 func TestFilterByRepo(t *testing.T) {
 	reader := NewStateReader("/test")
-	
+
 	sessions := []SessionInfo{
 		{SessionName: "session1", AgentName: "john"},
 		{SessionName: "session2", AgentName: "sarah"},
 	}
-	
+
 	filtered := reader.FilterByRepo(sessions, "https://github.com/test/repo.git")
-	
+
 	// Current implementation returns all sessions (simplified)
 	if len(filtered) != len(sessions) {
 		t.Errorf("Expected %d filtered sessions, got %d", len(sessions), len(filtered))
@@ -270,14 +270,14 @@ func TestFilterByRepo(t *testing.T) {
 
 func TestGetSessionStatusFunctions(t *testing.T) {
 	reader := NewStateReader("/test")
-	
+
 	// Test getSessionStatus with non-existent tmux session
 	// This will likely return "inactive" since tmux session doesn't exist
 	status := reader.getSessionStatus("non-existent-session")
 	if status != "inactive" {
 		t.Logf("getSessionStatus returned '%s' for non-existent session (expected 'inactive' but may vary)", status)
 	}
-	
+
 	// Test getPaneContent with non-existent session
 	// This should return an error
 	_, err := reader.getPaneContent("non-existent-session")

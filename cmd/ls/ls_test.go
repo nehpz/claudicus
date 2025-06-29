@@ -239,16 +239,16 @@ func TestFormatFunctions(t *testing.T) {
 
 	t.Run("formatStatus function", func(t *testing.T) {
 		// Test different status values
-			tests := []struct {
-				name     string
-				status   string
-				expected string
-			}{
-				{"ready status", "ready", "\033[32mready\033[0m"},
-				{"running status", "running", "\033[33mrunning\033[0m"},
-				{"unknown status", "unknown", "unknown"},
-				{"empty status", "", ""},
-			}
+		tests := []struct {
+			name     string
+			status   string
+			expected string
+		}{
+			{"ready status", "ready", "\033[32mready\033[0m"},
+			{"running status", "running", "\033[33mrunning\033[0m"},
+			{"unknown status", "unknown", "unknown"},
+			{"empty status", "", ""},
+		}
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
@@ -421,4 +421,3 @@ func TestComprehensiveCoverage(t *testing.T) {
 		})
 	}
 }
-

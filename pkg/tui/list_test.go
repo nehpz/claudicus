@@ -14,40 +14,40 @@ func TestClaudeSquadListView(t *testing.T) {
 	// Create test session data
 	sessions := []SessionInfo{
 		{
-			Name:        "test-session-1",
-			AgentName:   "claude-3.5-sonnet",
-			Model:       "claude-3.5-sonnet",
-			Status:      "running",
-			Prompt:      "Create a web application with authentication",
-			Insertions:  45,
-			Deletions:   12,
-			Port:        3000,
+			Name:       "test-session-1",
+			AgentName:  "claude-3.5-sonnet",
+			Model:      "claude-3.5-sonnet",
+			Status:     "running",
+			Prompt:     "Create a web application with authentication",
+			Insertions: 45,
+			Deletions:  12,
+			Port:       3000,
 		},
 		{
-			Name:        "test-session-2",
-			AgentName:   "gpt-4",
-			Model:       "gpt-4",
-			Status:      "ready",
-			Prompt:      "Fix the database connection issue in the backend API",
-			Insertions:  0,
-			Deletions:   0,
-			Port:        0,
+			Name:       "test-session-2",
+			AgentName:  "gpt-4",
+			Model:      "gpt-4",
+			Status:     "ready",
+			Prompt:     "Fix the database connection issue in the backend API",
+			Insertions: 0,
+			Deletions:  0,
+			Port:       0,
 		},
 		{
-			Name:        "test-session-3",
-			AgentName:   "claude-3.5-haiku",
-			Model:       "claude-3.5-haiku",
-			Status:      "inactive",
-			Prompt:      "Write unit tests for the user management module",
-			Insertions:  23,
-			Deletions:   5,
-			Port:        8080,
+			Name:       "test-session-3",
+			AgentName:  "claude-3.5-haiku",
+			Model:      "claude-3.5-haiku",
+			Status:     "inactive",
+			Prompt:     "Write unit tests for the user management module",
+			Insertions: 23,
+			Deletions:  5,
+			Port:       8080,
 		},
 	}
 
 	// Create list model with Claude Squad styling
 	listModel := NewListModel(80, 24)
-	
+
 	// Test LoadSessions function
 	listModel.LoadSessions(sessions)
 
@@ -59,7 +59,7 @@ func TestClaudeSquadListView(t *testing.T) {
 	// Test individual session list items
 	for i, session := range sessions {
 		sessionItem := NewSessionListItem(session)
-		
+
 		// Test title formatting
 		title := sessionItem.Title()
 		if !strings.Contains(title, session.AgentName) {
@@ -90,18 +90,18 @@ func TestClaudeSquadListView(t *testing.T) {
 			}
 		}
 
-// Test prompt inclusion
-if session.Prompt != "" {
-	// Prompt should be either full or truncated (now 37 chars + "...")
-	truncatedPrompt := session.Prompt
-	if len(session.Prompt) > 40 {
-		truncatedPrompt = session.Prompt[:37] + "..."
-	}
-	hasPrompt := strings.Contains(description, session.Prompt) || strings.Contains(description, truncatedPrompt)
-	if !hasPrompt {
-		t.Errorf("Description should contain prompt for session %d, got: %s", i, description)
-	}
-}
+		// Test prompt inclusion
+		if session.Prompt != "" {
+			// Prompt should be either full or truncated (now 37 chars + "...")
+			truncatedPrompt := session.Prompt
+			if len(session.Prompt) > 40 {
+				truncatedPrompt = session.Prompt[:37] + "..."
+			}
+			hasPrompt := strings.Contains(description, session.Prompt) || strings.Contains(description, truncatedPrompt)
+			if !hasPrompt {
+				t.Errorf("Description should contain prompt for session %d, got: %s", i, description)
+			}
+		}
 
 		// Test filter value
 		filterValue := sessionItem.FilterValue()
@@ -190,19 +190,19 @@ func TestMetricsBasedActivityColors(t *testing.T) {
 
 			// Create list item and test styling
 			sessionItem := NewSessionListItem(session)
-			
+
 			// Test that the correct style is applied based on activity status
 			actualStyle := sessionItem.getActivityStatusStyle(tc.activityStatus)
-			
+
 			// Render both styles to compare (basic check that they're different for different statuses)
 			expectedRendered := tc.expectedStyle.Render("test")
 			actualRendered := actualStyle.Render("test")
-			
+
 			// Verify the style is not empty and matches expected behavior
 			if actualRendered == "" {
 				t.Error("Activity status style should not render empty string")
 			}
-			
+
 			// For a more specific test, check the color constants
 			switch tc.activityStatus {
 			case "working":
@@ -289,7 +289,6 @@ func TestListFilteringWithMetrics(t *testing.T) {
 		t.Errorf("Expected 3 sessions after clearing filter, got %d", allFiltered)
 	}
 }
-
 
 func TestClaudeSquadColorScheme(t *testing.T) {
 	// Test that Claude Squad colors are defined correctly

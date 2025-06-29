@@ -123,9 +123,9 @@ func (sr *StateReader) getSessionStatus(sessionName string) string {
 	}
 
 	// Check for running indicators
-	if strings.Contains(content, "esc to interrupt") || 
-	   strings.Contains(content, "Thinking") ||
-	   strings.Contains(content, "Working") {
+	if strings.Contains(content, "esc to interrupt") ||
+		strings.Contains(content, "Thinking") ||
+		strings.Contains(content, "Working") {
 		return "running"
 	}
 

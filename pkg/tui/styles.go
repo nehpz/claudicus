@@ -11,13 +11,13 @@ import (
 // Based on the design from uzi-site/index.html
 var (
 	// Primary Claude Squad colors
-	ClaudeSquadPrimary = lipgloss.Color("#ffffff")    // White text
-	ClaudeSquadAccent  = lipgloss.Color("#00ff9d")    // Signature green
-	ClaudeSquadDark    = lipgloss.Color("#0a0a0a")    // Deep black background
-	ClaudeSquadGray    = lipgloss.Color("#1a1a1a")    // Dark gray containers
-	ClaudeSquadMuted   = lipgloss.Color("#6b7280")    // Muted gray for secondary text
-	ClaudeSquadHover   = lipgloss.Color("#00e68a")    // Slightly darker green for hover
-	
+	ClaudeSquadPrimary = lipgloss.Color("#ffffff") // White text
+	ClaudeSquadAccent  = lipgloss.Color("#00ff9d") // Signature green
+	ClaudeSquadDark    = lipgloss.Color("#0a0a0a") // Deep black background
+	ClaudeSquadGray    = lipgloss.Color("#1a1a1a") // Dark gray containers
+	ClaudeSquadMuted   = lipgloss.Color("#6b7280") // Muted gray for secondary text
+	ClaudeSquadHover   = lipgloss.Color("#00e68a") // Slightly darker green for hover
+
 	// Legacy colors for backward compatibility
 	PrimaryColor   = lipgloss.Color("#7C3AED")
 	SecondaryColor = lipgloss.Color("#10B981")
@@ -32,104 +32,104 @@ var (
 var (
 	// Core styling with Claude Squad theme
 	ClaudeSquadBaseStyle = lipgloss.NewStyle().
-		Foreground(ClaudeSquadPrimary).
-		Background(ClaudeSquadDark)
+				Foreground(ClaudeSquadPrimary).
+				Background(ClaudeSquadDark)
 
 	// Warning and error styles
 	WarningStyle = lipgloss.NewStyle().
-		Foreground(WarningColor)
+			Foreground(WarningColor)
 
 	ErrorStyle = lipgloss.NewStyle().
-		Foreground(ErrorColor)
-	
+			Foreground(ErrorColor)
+
 	// Primary accent styling (Claude Squad green)
 	ClaudeSquadAccentStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadAccent).
-		Bold(true)
-	
+				Foreground(ClaudeSquadAccent).
+				Bold(true)
+
 	// Primary text styling
 	ClaudeSquadPrimaryStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadPrimary)
-	
+				Foreground(ClaudeSquadPrimary)
+
 	// Muted text styling
 	ClaudeSquadMutedStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadMuted)
-	
+				Foreground(ClaudeSquadMuted)
+
 	// Header styling
 	ClaudeSquadHeaderStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadPrimary).
-		Bold(true).
-		MarginBottom(1)
-	
+				Foreground(ClaudeSquadPrimary).
+				Bold(true).
+				MarginBottom(1)
+
 	// Header bar styling
 	ClaudeSquadHeaderBarStyle = ClaudeSquadBaseStyle.Copy().
-		Background(ClaudeSquadGray)
-	
+					Background(ClaudeSquadGray)
+
 	// Border styling with Claude Squad theme
 	ClaudeSquadBorderStyle = ClaudeSquadBaseStyle.Copy().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(ClaudeSquadAccent).
-		Padding(1)
-	
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(ClaudeSquadAccent).
+				Padding(1)
+
 	// Selected item styling (highlighted with Claude Squad green)
 	ClaudeSquadSelectedStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadAccent).
-		Bold(true)
-	
+					Foreground(ClaudeSquadAccent).
+					Bold(true)
+
 	// Selected description styling
 	ClaudeSquadSelectedDescStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadPrimary)
-	
+					Foreground(ClaudeSquadPrimary)
+
 	// Normal title styling
 	ClaudeSquadNormalTitleStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadPrimary)
-	
+					Foreground(ClaudeSquadPrimary)
+
 	// Normal description styling
 	ClaudeSquadNormalDescStyle = ClaudeSquadBaseStyle.Copy().
-		Foreground(ClaudeSquadMuted)
+					Foreground(ClaudeSquadMuted)
 )
 
 // Legacy Base styles for backward compatibility
 var (
 	BaseStyle = lipgloss.NewStyle()
-	
+
 	// Header styles
 	HeaderStyle = BaseStyle.Copy().
-		Bold(true).
-		Foreground(PrimaryColor).
-		MarginBottom(1)
-	
+			Bold(true).
+			Foreground(PrimaryColor).
+			MarginBottom(1)
+
 	// Content styles
 	ContentStyle = BaseStyle.Copy().
-		Padding(1, 2)
-	
+			Padding(1, 2)
+
 	// Status styles
 	StatusReadyStyle = BaseStyle.Copy().
-		Foreground(SuccessColor).
-		Bold(true)
-	
+				Foreground(SuccessColor).
+				Bold(true)
+
 	StatusRunningStyle = BaseStyle.Copy().
-		Foreground(WarningColor).
-		Bold(true)
-	
+				Foreground(WarningColor).
+				Bold(true)
+
 	StatusErrorStyle = BaseStyle.Copy().
-		Foreground(ErrorColor).
-		Bold(true)
-	
+				Foreground(ErrorColor).
+				Bold(true)
+
 	// Border styles
 	BorderStyle = BaseStyle.Copy().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(MutedColor)
-	
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(MutedColor)
+
 	// Selected item style
 	SelectedItemStyle = BaseStyle.Copy().
-		Foreground(PrimaryColor).
-		Bold(true)
-	
+				Foreground(PrimaryColor).
+				Bold(true)
+
 	// Help text style
 	HelpStyle = BaseStyle.Copy().
-		Foreground(MutedColor).
-		Italic(true)
+			Foreground(MutedColor).
+			Italic(true)
 )
 
 // Claude Squad utility functions

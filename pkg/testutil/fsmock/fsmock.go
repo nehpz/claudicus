@@ -26,7 +26,7 @@ type TempFS struct {
 // The returned TempFS will automatically clean up when the test ends.
 func NewTempFS(t testing.TB) *TempFS {
 	t.Helper()
-	
+
 	rootDir, err := os.MkdirTemp("", "fsmock-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temporary directory: %v", err)
@@ -60,12 +60,12 @@ func (fs *TempFS) MkdirAll(path string, perm os.FileMode) error {
 // WriteFile creates a file with the given content
 func (fs *TempFS) WriteFile(path string, content []byte, perm os.FileMode) error {
 	fullPath := fs.resolvePath(path)
-	
+
 	// Ensure parent directories exist
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 		return fmt.Errorf("failed to create parent directories: %w", err)
 	}
-	
+
 	return os.WriteFile(fullPath, content, perm)
 }
 
@@ -132,7 +132,7 @@ func (fs *TempFS) CreateGitRepo(repoPath string) error {
 	if err := fs.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
 		return fmt.Errorf("failed to create .git directory: %w", err)
 	}
-	
+
 	// Create a basic git config
 	gitConfig := `[core]
 	repositoryformatversion = 0
@@ -146,12 +146,12 @@ func (fs *TempFS) CreateGitRepo(repoPath string) error {
 	if err := fs.WriteFileString(filepath.Join(repoPath, ".git", "config"), gitConfig, 0644); err != nil {
 		return fmt.Errorf("failed to create git config: %w", err)
 	}
-	
+
 	// Create HEAD file
 	if err := fs.WriteFileString(filepath.Join(repoPath, ".git", "HEAD"), "ref: refs/heads/main\n", 0644); err != nil {
 		return fmt.Errorf("failed to create HEAD file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -166,27 +166,27 @@ func (fs *TempFS) CreateProjectStructure(projectPath string) error {
 		"docs",
 		".github/workflows",
 	}
-	
+
 	for _, dir := range dirs {
 		if err := fs.MkdirAll(filepath.Join(projectPath, dir), 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
-	
+
 	// Create common files
 	files := map[string]string{
-		"go.mod":        "module example.com/test\n\ngo 1.21\n",
-		"README.md":     "# Test Project\n\nThis is a test project.\n",
-		".gitignore":    "*.log\n*.tmp\n.DS_Store\n",
-		"Makefile":      ".PHONY: test\ntest:\n\tgo test ./...\n",
+		"go.mod":     "module example.com/test\n\ngo 1.21\n",
+		"README.md":  "# Test Project\n\nThis is a test project.\n",
+		".gitignore": "*.log\n*.tmp\n.DS_Store\n",
+		"Makefile":   ".PHONY: test\ntest:\n\tgo test ./...\n",
 	}
-	
+
 	for filename, content := range files {
 		if err := fs.WriteFileString(filepath.Join(projectPath, filename), content, 0644); err != nil {
 			return fmt.Errorf("failed to create file %s: %w", filename, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -201,7 +201,7 @@ func (fs *TempFS) Cleanup() {
 	if fs.cleaned {
 		return
 	}
-	
+
 	fs.cleaned = true
 	if err := os.RemoveAll(fs.rootDir); err != nil {
 		// Use Logf if available (Go 1.14+), otherwise fall back to error handling
@@ -230,10 +230,10 @@ func (fs *TempFS) TempFile(pattern string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	path := file.Name()
 	file.Close()
-	
+
 	return path, nil
 }
 

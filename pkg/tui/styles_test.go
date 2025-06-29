@@ -157,7 +157,7 @@ func TestFormatStatus(t *testing.T) {
 			if !strings.Contains(result, tt.expected) {
 				t.Errorf("Expected status %q to contain %q, got %q", tt.status, tt.expected, result)
 			}
-			
+
 			// Should match Claude Squad formatting
 			claudeSquadResult := FormatStatusWithClaudeSquad(tt.status)
 			if result != claudeSquadResult {
@@ -170,18 +170,18 @@ func TestFormatStatus(t *testing.T) {
 func TestApplyClaudeSquadTheme(t *testing.T) {
 	// Create a basic style
 	baseStyle := lipgloss.NewStyle()
-	
+
 	// Apply Claude Squad theme
 	themedStyle := ApplyClaudeSquadTheme(baseStyle)
-	
+
 	// Test that the themed style renders
 	themedRendered := themedStyle.Render("test")
-	
+
 	// Just verify it doesn't panic and produces some output
 	if themedRendered == "" {
 		t.Error("Expected themed style to render output, got empty string")
 	}
-	
+
 	// Test that the function doesn't crash with empty input
 	emptyRendered := themedStyle.Render("")
 	_ = emptyRendered // Just ensure it doesn't panic
@@ -190,14 +190,14 @@ func TestApplyClaudeSquadTheme(t *testing.T) {
 func TestApplyTheme(t *testing.T) {
 	// Test legacy function that should delegate to Claude Squad theming
 	baseStyle := lipgloss.NewStyle()
-	
+
 	legacyThemed := ApplyTheme(baseStyle)
 	claudeSquadThemed := ApplyClaudeSquadTheme(baseStyle)
-	
+
 	// Should produce the same result
 	legacyRendered := legacyThemed.Render("test")
 	claudeSquadRendered := claudeSquadThemed.Render("test")
-	
+
 	if legacyRendered != claudeSquadRendered {
 		t.Error("ApplyTheme should delegate to ApplyClaudeSquadTheme")
 	}
@@ -294,11 +294,11 @@ func TestStyleChaining(t *testing.T) {
 	// Test that we can build upon existing styles
 	customStyle := ClaudeSquadBaseStyle.Copy().Bold(true).Italic(true)
 	rendered := customStyle.Render("Custom styled text")
-	
+
 	if rendered == "" {
 		t.Error("Expected rendered output from chained style, got empty string")
 	}
-	
+
 	// Should be different from base style
 	baseRendered := ClaudeSquadBaseStyle.Render("Custom styled text")
 	// Since styles may render the same in test environments without a terminal,

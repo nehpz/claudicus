@@ -32,7 +32,7 @@ func TestTUILaunchAndExit(t *testing.T) {
 	cmd.Stdin = nil // No input - should exit with terminal error
 
 	err := cmd.Run()
-	
+
 	// Should exit with error about terminal requirement when no TTY
 	if err == nil {
 		t.Error("Expected TUI to exit with error when no TTY available")
@@ -77,14 +77,14 @@ func TestUziCLIInterface(t *testing.T) {
 func TestPortAssignmentPrevention(t *testing.T) {
 	// This is a regression test for the port collision bug we fixed
 	// We test by checking if multiple agents would get different ports
-	
+
 	// Create temporary test directory
 	tmpDir := t.TempDir()
-	
+
 	// Create test config
 	configContent := `devCommand: echo 'test-dev-server --port $PORT'
 portRange: 3000-3010`
-	
+
 	configPath := tmpDir + "/test-uzi.yaml"
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	if err != nil {
@@ -134,7 +134,7 @@ func TestUziCommandIntegration(t *testing.T) {
 
 	cmd := exec.CommandContext(ctx, "uzi", "ls")
 	output, err := cmd.Output()
-	
+
 	// Command should succeed (even if no sessions)
 	if err != nil {
 		t.Errorf("uzi ls command failed: %v", err)
@@ -223,12 +223,12 @@ func TestSessionSorting(t *testing.T) {
 	// Should have same order (this tests our port-based sorting fix)
 	for i := 0; i < len(sessions1) && i < len(sessions2); i++ {
 		if sessions1[i].Name != sessions2[i].Name {
-			t.Errorf("Session order changed between calls at index %d: %s vs %s", 
+			t.Errorf("Session order changed between calls at index %d: %s vs %s",
 				i, sessions1[i].Name, sessions2[i].Name)
 		}
 
 		if sessions1[i].Port != sessions2[i].Port {
-			t.Errorf("Session port changed between calls for %s: %d vs %d", 
+			t.Errorf("Session port changed between calls for %s: %d vs %d",
 				sessions1[i].Name, sessions1[i].Port, sessions2[i].Port)
 		}
 	}

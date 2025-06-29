@@ -281,7 +281,7 @@ func TestGetGitRepo(t *testing.T) {
 	if sm == nil {
 		t.Fatal("Expected StateManager to be created")
 	}
-	
+
 	// This will likely return empty string since we're not in a git repo or git may not be configured
 	repo := sm.getGitRepo()
 	// We can't assert specific values since it depends on the environment
@@ -296,7 +296,7 @@ func TestGetBranchFrom(t *testing.T) {
 	if sm == nil {
 		t.Fatal("Expected StateManager to be created")
 	}
-	
+
 	// This will likely return "main" as fallback since we may not have git symbolic-ref set up
 	branch := sm.getBranchFrom()
 	if branch == "" {
@@ -313,7 +313,7 @@ func TestGetCurrentBranch(t *testing.T) {
 	if sm == nil {
 		t.Fatal("Expected StateManager to be created")
 	}
-	
+
 	// This will likely return empty string since we may not be in a git repo
 	branch := sm.getCurrentBranch()
 	// We can't assert specific values since it depends on the environment
@@ -327,7 +327,7 @@ func TestIsActiveInTmux(t *testing.T) {
 	if sm == nil {
 		t.Fatal("Expected StateManager to be created")
 	}
-	
+
 	// Test with non-existent session (should return false)
 	active := sm.isActiveInTmux("non-existent-session")
 	if active {
@@ -337,14 +337,14 @@ func TestIsActiveInTmux(t *testing.T) {
 
 func TestStoreWorktreeBranch(t *testing.T) {
 	tmpDir := t.TempDir()
-	
+
 	// Create a StateManager that will write to temp directory
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
 		fs:        NewDefaultFileSystem(),
 		cmdExec:   &DefaultCommandExecutor{},
 	}
-	
+
 	// This will likely fail since we're not in a git repo, but test that it doesn't crash
 	err := sm.storeWorktreeBranch("test-session")
 	// We don't assert the error since it depends on git environment
@@ -361,20 +361,20 @@ func TestGetActiveSessionsForRepoWithRepo(t *testing.T) {
 		fs:        NewDefaultFileSystem(),
 		cmdExec:   &DefaultCommandExecutor{},
 	}
-	
+
 	// Save a test state first
 	err := sm.SaveState("test prompt", "test-branch", "test-session", "/test/path", "test-model")
 	if err != nil {
 		t.Errorf("Expected SaveState to succeed, got: %v", err)
 	}
-	
+
 	// Test getting active sessions
 	// This will likely return empty since tmux sessions don't exist and git repo may not match
 	sessions, err := sm.GetActiveSessionsForRepo()
 	if err != nil {
 		t.Errorf("Expected GetActiveSessionsForRepo to succeed, got: %v", err)
 	}
-	
+
 	// Allow both nil and empty slice (function returns empty slice)
 	if sessions == nil {
 		t.Log("GetActiveSessionsForRepo returned nil (expected empty slice but nil is also acceptable)")
@@ -387,13 +387,13 @@ func TestRemoveStateCorruptedJSON(t *testing.T) {
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
 	}
-	
+
 	// Write corrupted JSON
 	err := os.WriteFile(sm.statePath, []byte("invalid json"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write corrupted JSON: %v", err)
 	}
-	
+
 	// Try to remove state - should fail due to corrupted JSON
 	err = sm.RemoveState("test-session")
 	if err == nil {
@@ -406,13 +406,13 @@ func TestGetWorktreeInfoCorruptedJSON(t *testing.T) {
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
 	}
-	
+
 	// Write corrupted JSON
 	err := os.WriteFile(sm.statePath, []byte("invalid json"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write corrupted JSON: %v", err)
 	}
-	
+
 	// Try to get worktree info - should fail due to corrupted JSON
 	_, err = sm.GetWorktreeInfo("test-session")
 	if err == nil {
@@ -427,25 +427,25 @@ func TestSaveStateExistingCorruptedJSON(t *testing.T) {
 		fs:        NewDefaultFileSystem(),
 		cmdExec:   &DefaultCommandExecutor{},
 	}
-	
+
 	// Write corrupted JSON
 	err := os.WriteFile(sm.statePath, []byte("invalid json"), 0644)
 	if err != nil {
 		t.Fatalf("Failed to write corrupted JSON: %v", err)
 	}
-	
+
 	// Try to save state - should succeed by overwriting the corrupted file
 	err = sm.SaveState("test prompt", "test-branch", "test-session", "/test/path", "test-model")
 	if err != nil {
 		t.Errorf("Expected SaveState to succeed even with corrupted existing file, got: %v", err)
 	}
-	
+
 	// Verify the file is now valid
 	info, err := sm.GetWorktreeInfo("test-session")
 	if err != nil {
 		t.Errorf("Expected GetWorktreeInfo to succeed after SaveState, got: %v", err)
 	}
-	
+
 	if info.Prompt != "test prompt" {
 		t.Errorf("Expected prompt 'test prompt', got '%s'", info.Prompt)
 	}

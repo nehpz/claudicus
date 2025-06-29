@@ -51,7 +51,7 @@ func (m *AgentActivityMonitor) Start(ctx context.Context) error {
 	m.running = true
 
 	go m.monitorLoop(ctx)
-	
+
 	log.Debug("AgentActivityMonitor started with 500ms ticker")
 	return nil
 }
@@ -67,11 +67,11 @@ func (m *AgentActivityMonitor) Stop() {
 
 	m.running = false
 	close(m.done)
-	
+
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
-	
+
 	log.Debug("AgentActivityMonitor stopped")
 }
 
@@ -143,7 +143,7 @@ func (m *AgentActivityMonitor) getOrCreateMetrics(sessionName string) *Metrics {
 	if metrics, exists := m.metrics[sessionName]; exists {
 		return metrics
 	}
-	
+
 	metrics := NewMetrics()
 	m.metrics[sessionName] = metrics
 	return metrics
@@ -162,7 +162,7 @@ func (m *AgentActivityMonitor) updateSessionMetrics(sessionName, worktreePath st
 
 	// Get git log info for commits and last commit time
 	commits, lastCommitAt := m.getGitLogInfo(worktreePath)
-	
+
 	// Get git diff stats
 	insertions, deletions, filesChanged := m.getGitDiffStats(worktreePath)
 
@@ -174,7 +174,7 @@ func (m *AgentActivityMonitor) updateSessionMetrics(sessionName, worktreePath st
 	if !lastCommitAt.IsZero() {
 		metrics.LastCommitAt = lastCommitAt
 	}
-	
+
 	// Classify status based on activity
 	metrics.Status = m.Classify(metrics)
 }
@@ -201,7 +201,7 @@ func (m *AgentActivityMonitor) getGitLogInfo(worktreePath string) (int, time.Tim
 	if commitCount > 0 {
 		cmd := exec.Command("git", "--no-pager", "log", "-1", "--format=%ct")
 		cmd.Dir = worktreePath
-		
+
 		if output, err := cmd.Output(); err == nil {
 			if timestamp, err := strconv.ParseInt(strings.TrimSpace(string(output)), 10, 64); err == nil {
 				lastCommitAt = time.Unix(timestamp, 0)

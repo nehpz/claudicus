@@ -5,10 +5,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os/exec"
-	"strings"
 	"github.com/nehpz/claudicus/pkg/config"
 	"github.com/nehpz/claudicus/pkg/state"
+	"os/exec"
+	"strings"
 
 	"github.com/charmbracelet/log"
 	"github.com/peterbourgon/ff/v3/ffcli"

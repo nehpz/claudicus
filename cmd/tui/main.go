@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	fs = flag.NewFlagSet("uzi tui", flag.ExitOnError)
+	fs         = flag.NewFlagSet("uzi tui", flag.ExitOnError)
 	configPath = fs.String("config", config.GetDefaultConfigPath(), "path to config file")
-	CmdTui = &ffcli.Command{
+	CmdTui     = &ffcli.Command{
 		Name:       "tui",
 		ShortUsage: "uzi tui",
 		ShortHelp:  "Launch the interactive TUI interface",
@@ -56,7 +56,7 @@ func Run() error {
 	if !isTerminal() {
 		return fmt.Errorf("TUI requires a terminal environment")
 	}
-	
+
 	// TODO: Load configuration
 	_ = configPath
 
@@ -65,7 +65,7 @@ func Run() error {
 
 	// Create the TUI application
 	app := tui.NewApp(uziCLI)
-	
+
 	// Create the Bubble Tea program with more conservative options
 	program := tea.NewProgram(
 		app,

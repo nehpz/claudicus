@@ -411,10 +411,10 @@ func TestSessionNameMatching(t *testing.T) {
 
 	// Test session name matching logic
 	tests := []struct {
-		name           string
-		sessionName    string
-		agentName      string
-		shouldMatch    bool
+		name        string
+		sessionName string
+		agentName   string
+		shouldMatch bool
 	}{
 		{
 			name:        "exact suffix match",
@@ -579,4 +579,3 @@ func TestComprehensiveCoverage(t *testing.T) {
 		})
 	}
 }
-

@@ -47,34 +47,34 @@ type SessionInfo struct {
 type UziInterface interface {
 	// GetSessions returns a list of session information
 	GetSessions() ([]SessionInfo, error)
-	
+
 	// GetSessionState returns the state for a specific session
 	GetSessionState(sessionName string) (*state.AgentState, error)
-	
+
 	// GetSessionStatus returns the current status of a session
 	GetSessionStatus(sessionName string) (string, error)
-	
+
 	// AttachToSession attaches to an existing session
 	AttachToSession(sessionName string) error
-	
+
 	// KillSession terminates a session
 	KillSession(sessionName string) error
-	
+
 	// RefreshSessions refreshes the session list
 	RefreshSessions() error
-	
+
 	// RunPrompt creates a new agent session
 	RunPrompt(agents string, prompt string) error
-	
+
 	// RunBroadcast sends a message to all active sessions
 	RunBroadcast(message string) error
-	
+
 	// RunCommand executes a command in all sessions
 	RunCommand(command string) error
-	
+
 	// RunCheckpoint creates a checkpoint for an agent
 	RunCheckpoint(agentName string, message string) error
-	
+
 	// SpawnAgent creates a new agent and returns the session name
 	SpawnAgent(prompt, model string) (string, error)
 
@@ -183,7 +183,7 @@ func (c *UziCLI) executeCommandWithTimeout(timeout time.Duration, name string, a
 		case err := <-done:
 			duration := time.Since(start)
 			if err != nil {
-				lastErr = fmt.Errorf("command failed (attempt %d/%d): %w - stderr: %s", 
+				lastErr = fmt.Errorf("command failed (attempt %d/%d): %w - stderr: %s",
 					attempt+1, c.config.Retries+1, err, stderr.String())
 				c.logOperation(fmt.Sprintf("%s %v", name, args), duration, lastErr)
 
@@ -291,10 +291,10 @@ func (c *UziCLI) GetSessionsLegacy() ([]SessionInfo, error) {
 
 		// Extract agent name from session name
 		agentName := extractAgentName(sessionName)
-		
+
 		// Get session status
 		status := c.getAgentStatus(sessionName)
-		
+
 		// Get git diff stats
 		insertions, deletions := c.getGitDiffTotals(sessionName, &state)
 
@@ -433,16 +433,16 @@ func (c *UziCLI) RunCheckpoint(agentName string, message string) error {
 func (c *UziCLI) SpawnAgent(prompt, model string) (string, error) {
 	start := time.Now()
 	defer func() { c.logOperation("SpawnAgent", time.Since(start), nil) }()
-	
+
 	// Create the agent configuration by wrapping model in agent:count format
 	agentsFlag := fmt.Sprintf("%s:1", model)
-	
+
 	// Execute the spawn workflow directly using our internal implementation
 	sessionName, err := c.executeSpawnWorkflow(agentsFlag, prompt)
 	if err != nil {
 		return "", c.wrapError("SpawnAgent", err)
 	}
-	
+
 	return sessionName, nil
 }
 
@@ -451,26 +451,26 @@ func (c *UziCLI) SpawnAgent(prompt, model string) (string, error) {
 func (c *UziCLI) executeSpawnWorkflow(agentsFlag, promptText string) (string, error) {
 	// Load config - required for standardized dev environment setup (will be handled in individual helper methods)
 	// The UziCLI uses ProxyConfig, not uzi.yaml config, so we'll handle config loading in helper methods
-	
+
 	// Parse the agent configuration
 	agentConfigs, err := c.parseAgentConfigs(agentsFlag)
 	if err != nil {
 		return "", fmt.Errorf("error parsing agents: %w", err)
 	}
-	
+
 	// Load existing session ports to prevent collisions
 	stateManager := c.stateManager
-	
+
 	existingPorts, err := c.getExistingSessionPorts(stateManager)
 	if err != nil {
 		log.Printf("Failed to load existing session ports, proceeding without collision check: %v", err)
 		existingPorts = []int{}
 	}
-	
+
 	// Track assigned ports
 	assignedPorts := existingPorts
 	var createdSessionName string
-	
+
 	// Process each agent configuration (typically just one for SpawnAgent)
 	for agent, config := range agentConfigs {
 		for i := 0; i < config.Count; i++ {
@@ -478,18 +478,18 @@ func (c *UziCLI) executeSpawnWorkflow(agentsFlag, promptText string) (string, er
 			if err != nil {
 				return "", fmt.Errorf("failed to create agent %s: %w", agent, err)
 			}
-			
+
 			// Store the first (and typically only) created session name
 			if createdSessionName == "" {
 				createdSessionName = sessionName
 			}
 		}
 	}
-	
+
 	if createdSessionName == "" {
 		return "", fmt.Errorf("no agent session was created")
 	}
-	
+
 	return createdSessionName, nil
 }
 
@@ -500,33 +500,33 @@ func (c *UziCLI) createSingleAgent(agent string, config AgentConfig, promptText 
 	if err != nil {
 		return "", fmt.Errorf("failed to generate agent name: %w", err)
 	}
-	
+
 	// Get git information
 	gitHash, projectDir, err := c.getGitInfo()
 	if err != nil {
 		return "", fmt.Errorf("failed to get git information: %w", err)
 	}
-	
+
 	// Generate unique identifiers
 	timestamp := time.Now().Unix()
 	uniqueId := fmt.Sprintf("%d", timestamp)
-	
+
 	// Create branch and session names
 	branchName := fmt.Sprintf("%s-%s-%s-%s", randomAgentName, projectDir, gitHash, uniqueId)
 	worktreeName := fmt.Sprintf("%s-%s-%s-%s", randomAgentName, projectDir, gitHash, uniqueId)
 	sessionName := fmt.Sprintf("agent-%s-%s-%s", projectDir, gitHash, randomAgentName)
-	
+
 	// Create worktree
 	worktreePath, err := c.createWorktree(branchName, worktreeName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create worktree: %w", err)
 	}
-	
+
 	// Create tmux session
 	if err := c.createTmuxSession(sessionName, worktreePath); err != nil {
 		return "", fmt.Errorf("failed to create tmux session: %w", err)
 	}
-	
+
 	// Setup development environment and execute agent command
 	var selectedPort int
 	// Always try to setup dev environment - the method will check if config is available
@@ -535,17 +535,17 @@ func (c *UziCLI) createSingleAgent(agent string, config AgentConfig, promptText 
 		log.Printf("Failed to setup dev environment, continuing without it: %v", err)
 		selectedPort = 0
 	}
-	
+
 	// Execute the agent command
 	commandToUse := config.Command
 	if agent == "random" {
 		commandToUse = randomAgentName
 	}
-	
+
 	if err := c.executeAgentCommand(sessionName, commandToUse, promptText, worktreePath); err != nil {
 		return "", fmt.Errorf("failed to execute agent command: %w", err)
 	}
-	
+
 	// Save state
 	if stateManager != nil {
 		if selectedPort > 0 {
@@ -558,7 +558,7 @@ func (c *UziCLI) createSingleAgent(agent string, config AgentConfig, promptText 
 			}
 		}
 	}
-	
+
 	return sessionName, nil
 }
 
@@ -593,10 +593,10 @@ func isHashLike(s string) bool {
 	if len(s) < 6 {
 		return false
 	}
-	
+
 	hasDigit := false
 	hasLetter := false
-	
+
 	for _, r := range s {
 		if r >= '0' && r <= '9' {
 			hasDigit = true
@@ -606,11 +606,10 @@ func isHashLike(s string) bool {
 			return false // Contains non-alphanumeric character
 		}
 	}
-	
+
 	// A hash should have both letters and digits
 	return hasDigit && hasLetter
 }
-
 
 // getAgentStatus determines the current status of an agent session
 func (c *UziCLI) getAgentStatus(sessionName string) string {
@@ -643,7 +642,7 @@ func (c *UziCLI) getGitDiffTotals(sessionName string, sessionState *state.AgentS
 
 	shellCmdString := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
 	cmd := uziExecCommand("sh", "-c", shellCmdString)
-	
+
 	// Only set Dir if it's not a test directory
 	if !strings.Contains(sessionState.WorktreePath, "test-worktree") && !strings.Contains(sessionState.WorktreePath, "/tmp/test-") {
 		cmd.Dir = sessionState.WorktreePath
@@ -876,7 +875,7 @@ func (c *UziCLI) getExistingSessionPorts(stateManager StateManagerInterface) ([]
 	if stateManager == nil {
 		return []int{}, nil
 	}
-	
+
 	// Read the state file
 	stateFile := stateManager.GetStatePath()
 	data, err := os.ReadFile(stateFile)
@@ -887,13 +886,13 @@ func (c *UziCLI) getExistingSessionPorts(stateManager StateManagerInterface) ([]
 		}
 		return nil, fmt.Errorf("failed to read state file: %w", err)
 	}
-	
+
 	// Parse the state file
 	states := make(map[string]state.AgentState)
 	if err := json.Unmarshal(data, &states); err != nil {
 		return nil, fmt.Errorf("failed to parse state file: %w", err)
 	}
-	
+
 	// Extract all assigned ports
 	var existingPorts []int
 	for _, agentState := range states {
@@ -901,7 +900,7 @@ func (c *UziCLI) getExistingSessionPorts(stateManager StateManagerInterface) ([]
 			existingPorts = append(existingPorts, agentState.Port)
 		}
 	}
-	
+
 	return existingPorts, nil
 }
 
@@ -916,7 +915,7 @@ func (c *UziCLI) getRandomAgentName(agent string) (string, error) {
 // getGitInfo retrieves git hash and project directory information
 func (c *UziCLI) getGitInfo() (gitHash, projectDir string, err error) {
 	ctx := context.Background()
-	
+
 	// Get the current git hash
 	gitHashCmd := exec.CommandContext(ctx, "git", "rev-parse", "--short", "HEAD")
 	gitHashOutput, err := gitHashCmd.Output()
@@ -935,14 +934,14 @@ func (c *UziCLI) getGitInfo() (gitHash, projectDir string, err error) {
 	// Extract repository name from URL (handle both https and ssh formats)
 	repoName := filepath.Base(remoteURL)
 	projectDir = strings.TrimSuffix(repoName, ".git")
-	
+
 	return gitHash, projectDir, nil
 }
 
 // createWorktree creates a git worktree for the agent
 func (c *UziCLI) createWorktree(branchName, worktreeName string) (string, error) {
 	ctx := context.Background()
-	
+
 	// Get home directory for worktree storage
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -955,21 +954,21 @@ func (c *UziCLI) createWorktree(branchName, worktreeName string) (string, error)
 	}
 
 	worktreePath := filepath.Join(worktreesDir, worktreeName)
-	
+
 	// Create git worktree
 	cmd := fmt.Sprintf("git worktree add -b %s %s", branchName, worktreePath)
 	cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
 	if err := cmdExec.Run(); err != nil {
 		return "", fmt.Errorf("error creating git worktree: %w", err)
 	}
-	
+
 	return worktreePath, nil
 }
 
 // createTmuxSession creates a tmux session for the agent
 func (c *UziCLI) createTmuxSession(sessionName, worktreePath string) error {
 	ctx := context.Background()
-	
+
 	// Create tmux session
 	cmd := fmt.Sprintf("tmux new-session -d -s %s -c %s", sessionName, worktreePath)
 	cmdExec := exec.CommandContext(ctx, "sh", "-c", cmd)
@@ -983,24 +982,24 @@ func (c *UziCLI) createTmuxSession(sessionName, worktreePath string) error {
 	if err := renameExec.Run(); err != nil {
 		return fmt.Errorf("error renaming tmux window: %w", err)
 	}
-	
+
 	return nil
 }
 
 // setupDevEnvironment sets up the development environment if configured
 func (c *UziCLI) setupDevEnvironment(sessionName, worktreePath string, assignedPorts *[]int) (int, error) {
 	ctx := context.Background()
-	
+
 	// Load configuration to get dev settings
 	cfg, err := c.loadDefaultConfig()
 	if err != nil {
 		return 0, fmt.Errorf("failed to load config: %w", err)
 	}
-	
+
 	if cfg.DevCommand == nil || *cfg.DevCommand == "" || cfg.PortRange == nil || *cfg.PortRange == "" {
 		return 0, nil // No dev environment to set up
 	}
-	
+
 	// Parse port range
 	ports := strings.Split(*cfg.PortRange, "-")
 	if len(ports) != 2 {
@@ -1039,7 +1038,7 @@ func (c *UziCLI) setupDevEnvironment(sessionName, worktreePath string, assignedP
 
 	// Update assigned ports
 	*assignedPorts = append(*assignedPorts, selectedPort)
-	
+
 	return selectedPort, nil
 }
 
@@ -1080,7 +1079,7 @@ func (c *UziCLI) isPortAvailable(port int) bool {
 // executeAgentCommand executes the agent command in the tmux session
 func (c *UziCLI) executeAgentCommand(sessionName, commandToUse, promptText, worktreePath string) error {
 	ctx := context.Background()
-	
+
 	// Hit enter in the agent pane
 	hitEnterCmd := fmt.Sprintf("tmux send-keys -t %s:agent C-m", sessionName)
 	hitEnterExec := exec.CommandContext(ctx, "sh", "-c", hitEnterCmd)
@@ -1095,55 +1094,55 @@ func (c *UziCLI) executeAgentCommand(sessionName, commandToUse, promptText, work
 	} else {
 		tmuxCmd = fmt.Sprintf("tmux send-keys -t %s:agent '%s \"%s\"' C-m", sessionName, commandToUse, promptText)
 	}
-	
+
 	tmuxCmdExec := exec.CommandContext(ctx, "sh", "-c", tmuxCmd)
 	tmuxCmdExec.Dir = worktreePath
 	if err := tmuxCmdExec.Run(); err != nil {
 		return fmt.Errorf("error sending keys to tmux: %w", err)
 	}
-	
+
 	return nil
 }
 
 // SpawnAgentInteractive implements the interactive agent creation with progress reporting
 func (c *UziCLI) SpawnAgentInteractive(opts string) (<-chan struct{}, error) {
 	progressChan := make(chan struct{}, 1)
-	
+
 	// Parse options (format: "agentType:count:prompt")
 	parts := strings.SplitN(opts, ":", 3)
 	if len(parts) != 3 {
 		close(progressChan)
 		return progressChan, fmt.Errorf("invalid options format, expected 'agentType:count:prompt'")
 	}
-	
+
 	agentType := strings.TrimSpace(parts[0])
 	countStr := strings.TrimSpace(parts[1])
 	prompt := strings.TrimSpace(parts[2])
-	
+
 	// Validate count
 	count, err := strconv.Atoi(countStr)
 	if err != nil || count < 1 || count > 10 {
 		close(progressChan)
 		return progressChan, fmt.Errorf("invalid count: must be between 1 and 10")
 	}
-	
+
 	// Start async agent creation
 	go func() {
 		defer close(progressChan)
-		
+
 		// Create the agent configuration
 		agentsFlag := fmt.Sprintf("%s:%d", agentType, count)
-		
+
 		// Execute the spawn workflow
 		_, err := c.executeSpawnWorkflow(agentsFlag, prompt)
 		if err != nil {
 			log.Printf("SpawnAgentInteractive failed: %v", err)
 			return
 		}
-		
+
 		// Signal completion
 		progressChan <- struct{}{}
 	}()
-	
+
 	return progressChan, nil
 }

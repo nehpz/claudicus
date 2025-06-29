@@ -28,7 +28,7 @@ func TestTUILaunchAndExit(t *testing.T) {
 	cmd.Stdin = nil // No input - should exit with terminal error
 
 	err := cmd.Run()
-	
+
 	// Should exit with error about terminal requirement when no TTY
 	if err == nil {
 		t.Error("Expected TUI to exit with error when no TTY available")
@@ -73,14 +73,14 @@ func TestUziCLIInterface(t *testing.T) {
 func TestPortAssignmentPrevention(t *testing.T) {
 	// This is a regression test for the port collision bug we fixed
 	// We test by checking if multiple agents would get different ports
-	
+
 	// Create temporary test directory
 	tmpDir := t.TempDir()
-	
+
 	// Create test config
 	configContent := `devCommand: echo 'test-dev-server --port $PORT'
 portRange: 3000-3010`
-	
+
 	configPath := tmpDir + "/test-uzi.yaml"
 	err := os.WriteFile(configPath, []byte(configContent), 0644)
 	if err != nil {

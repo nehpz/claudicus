@@ -26,7 +26,7 @@ func TestCommand(t *testing.T) {
 		Enable()
 		cmd := Command("nonexistent", "command")
 		require.NotNil(cmd)
-		
+
 		// Should record the call
 		calls := GetCalls()
 		require.Equal(1, len(calls))
@@ -38,10 +38,10 @@ func TestCommand(t *testing.T) {
 	t.Run("enabled mock with response", func(t *testing.T) {
 		Reset()
 		SetResponse("git", "output", false)
-		
+
 		cmd := Command("git", "status")
 		require.NotNil(cmd)
-		
+
 		calls := GetCalls()
 		require.Equal(1, len(calls))
 		require.Equal("git", calls[0].Name)
@@ -52,10 +52,10 @@ func TestCommand(t *testing.T) {
 	t.Run("mock with specific args", func(t *testing.T) {
 		Reset()
 		SetResponseWithArgs("git", []string{"status"}, "clean", "", false)
-		
+
 		cmd := Command("git", "status")
 		require.NotNil(cmd)
-		
+
 		calls := GetCalls()
 		require.Equal(1, len(calls))
 		require.Equal("git", calls[0].Name)
@@ -70,7 +70,7 @@ func TestSetResponse(t *testing.T) {
 	t.Run("set simple response", func(t *testing.T) {
 		Reset()
 		SetResponse("echo", "hello", false)
-		
+
 		// Verify response is stored
 		require.True(globalMock.enabled)
 		require.Equal(1, len(globalMock.responses))
@@ -79,7 +79,7 @@ func TestSetResponse(t *testing.T) {
 	t.Run("set response with error", func(t *testing.T) {
 		Reset()
 		SetResponse("false", "", true)
-		
+
 		require.True(globalMock.enabled)
 		require.Equal(1, len(globalMock.responses))
 	})
@@ -91,7 +91,7 @@ func TestSetResponseWithArgs(t *testing.T) {
 	t.Run("set response with args", func(t *testing.T) {
 		Reset()
 		SetResponseWithArgs("git", []string{"status"}, "clean", "", false)
-		
+
 		require.True(globalMock.enabled)
 		require.Equal(1, len(globalMock.responses))
 	})
@@ -99,7 +99,7 @@ func TestSetResponseWithArgs(t *testing.T) {
 	t.Run("set response with stderr", func(t *testing.T) {
 		Reset()
 		SetResponseWithArgs("git", []string{"status"}, "stdout", "stderr", true)
-		
+
 		require.True(globalMock.enabled)
 		require.Equal(1, len(globalMock.responses))
 	})
@@ -108,7 +108,7 @@ func TestSetResponseWithArgs(t *testing.T) {
 		Reset()
 		SetResponseWithArgs("git", []string{"status"}, "clean", "", false)
 		SetResponseWithArgs("git", []string{"log"}, "commits", "", false)
-		
+
 		require.Equal(2, len(globalMock.responses))
 	})
 }
@@ -119,18 +119,18 @@ func TestReset(t *testing.T) {
 	t.Run("reset clears state", func(t *testing.T) {
 		// Start with clean state
 		Reset()
-		
+
 		// Set up some state
 		SetResponse("git", "output", false)
 		Command("git", "status")
-		
+
 		require.True(globalMock.enabled)
 		require.Equal(1, len(globalMock.responses))
 		require.Equal(1, len(globalMock.calls))
-		
+
 		// Reset should clear everything
 		Reset()
-		
+
 		require.False(globalMock.enabled)
 		require.Equal(0, len(globalMock.responses))
 		require.Equal(0, len(globalMock.calls))
@@ -143,7 +143,7 @@ func TestEnableDisable(t *testing.T) {
 	t.Run("enable sets flag", func(t *testing.T) {
 		Reset()
 		require.False(globalMock.enabled)
-		
+
 		Enable()
 		require.True(globalMock.enabled)
 	})
@@ -151,7 +151,7 @@ func TestEnableDisable(t *testing.T) {
 	t.Run("disable clears flag", func(t *testing.T) {
 		Enable()
 		require.True(globalMock.enabled)
-		
+
 		Disable()
 		require.False(globalMock.enabled)
 	})
@@ -169,11 +169,11 @@ func TestGetCalls(t *testing.T) {
 	t.Run("multiple calls", func(t *testing.T) {
 		Reset()
 		Enable()
-		
+
 		Command("git", "status")
 		Command("tmux", "list-sessions")
 		Command("echo", "test")
-		
+
 		calls := GetCalls()
 		require.Equal(3, len(calls))
 		require.Equal("git", calls[0].Name)
@@ -185,11 +185,11 @@ func TestGetCalls(t *testing.T) {
 		Reset()
 		Enable()
 		Command("git", "status")
-		
+
 		calls1 := GetCalls()
 		Command("git", "log")
 		calls2 := GetCalls()
-		
+
 		require.Equal(1, len(calls1))
 		require.Equal(2, len(calls2))
 	})
@@ -206,13 +206,13 @@ func TestGetCallCount(t *testing.T) {
 	t.Run("multiple calls", func(t *testing.T) {
 		Reset()
 		Enable()
-		
+
 		Command("git", "status")
 		require.Equal(1, GetCallCount())
-		
+
 		Command("tmux", "list-sessions")
 		require.Equal(2, GetCallCount())
-		
+
 		Command("echo", "test")
 		require.Equal(3, GetCallCount())
 	})
@@ -230,7 +230,7 @@ func TestWasCommandCalled(t *testing.T) {
 		Reset()
 		Enable()
 		Command("git", "status")
-		
+
 		require.True(WasCommandCalled("git", "status"))
 		require.False(WasCommandCalled("git", "log"))
 		require.False(WasCommandCalled("tmux", "status"))
@@ -240,7 +240,7 @@ func TestWasCommandCalled(t *testing.T) {
 		Reset()
 		Enable()
 		Command("pwd")
-		
+
 		require.True(WasCommandCalled("pwd"))
 		require.False(WasCommandCalled("pwd", "arg"))
 	})
@@ -249,7 +249,7 @@ func TestWasCommandCalled(t *testing.T) {
 		Reset()
 		Enable()
 		Command("git", "log", "--oneline", "-n", "5")
-		
+
 		require.True(WasCommandCalled("git", "log", "--oneline", "-n", "5"))
 		require.False(WasCommandCalled("git", "log", "--oneline"))
 		require.False(WasCommandCalled("git", "log"))
@@ -269,7 +269,7 @@ func TestGetCommandCalls(t *testing.T) {
 		Reset()
 		Enable()
 		Command("git", "status")
-		
+
 		calls := GetCommandCalls("git", "status")
 		require.Equal(1, len(calls))
 		require.Equal("git", calls[0].Name)
@@ -280,17 +280,17 @@ func TestGetCommandCalls(t *testing.T) {
 	t.Run("multiple matching calls", func(t *testing.T) {
 		Reset()
 		Enable()
-		
+
 		Command("git", "status")
 		Command("tmux", "list-sessions")
 		Command("git", "status")
-		
+
 		calls := GetCommandCalls("git", "status")
 		require.Equal(2, len(calls))
-		
+
 		tmuxCalls := GetCommandCalls("tmux", "list-sessions")
 		require.Equal(1, len(tmuxCalls))
-		
+
 		noCalls := GetCommandCalls("echo", "test")
 		require.Equal(0, len(noCalls))
 	})
@@ -326,7 +326,7 @@ func TestGetCurrentDir(t *testing.T) {
 	t.Run("gets current directory", func(t *testing.T) {
 		dir := getCurrentDir()
 		require.True(len(dir) > 0)
-		
+
 		// Should match os.Getwd()
 		actualDir, err := os.Getwd()
 		require.NoError(err)
@@ -377,7 +377,7 @@ func TestCreateTestSafeCommand(t *testing.T) {
 			Stderr:   "test error",
 			ExitCode: 0,
 		}
-		
+
 		cmd := createTestSafeCommand(response)
 		require.NotNil(cmd)
 		// Path will be the full path to sh, so just check it contains "sh"
@@ -390,7 +390,7 @@ func TestCreateTestSafeCommand(t *testing.T) {
 			Stderr:   "error",
 			ExitCode: 1,
 		}
-		
+
 		cmd := createTestSafeCommand(response)
 		require.NotNil(cmd)
 	})
@@ -405,7 +405,7 @@ func TestCreateMockCommand(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 0,
 		}
-		
+
 		cmd := createMockCommand(response)
 		require.NotNil(cmd)
 	})
@@ -417,13 +417,13 @@ func TestWorkingDirectory(t *testing.T) {
 	t.Run("records working directory", func(t *testing.T) {
 		Reset()
 		Enable()
-		
+
 		Command("git", "status")
-		
+
 		calls := GetCalls()
 		require.Equal(1, len(calls))
 		require.True(len(calls[0].Dir) > 0)
-		
+
 		// Should match current directory
 		currentDir, err := os.Getwd()
 		require.NoError(err)
@@ -437,7 +437,7 @@ func TestConcurrency(t *testing.T) {
 	t.Run("concurrent access", func(t *testing.T) {
 		Reset()
 		Enable()
-		
+
 		// Run commands concurrently
 		done := make(chan bool, 10)
 		for i := 0; i < 10; i++ {
@@ -446,12 +446,12 @@ func TestConcurrency(t *testing.T) {
 				done <- true
 			}(i)
 		}
-		
+
 		// Wait for all goroutines
 		for i := 0; i < 10; i++ {
 			<-done
 		}
-		
+
 		calls := GetCalls()
 		require.Equal(10, len(calls))
 	})
@@ -465,43 +465,43 @@ func TestCompleteWorkflow(t *testing.T) {
 		Reset()
 		require.False(globalMock.enabled)
 		require.Equal(0, GetCallCount())
-		
+
 		// Set up responses
 		SetResponse("git", "clean working tree", false)
 		SetResponseWithArgs("tmux", []string{"list-sessions"}, "session1\nsession2", "", false)
-		
+
 		require.True(globalMock.enabled)
-		
+
 		// Execute commands
 		Command("git", "status")
 		Command("tmux", "list-sessions")
 		Command("echo", "test") // No response set
-		
+
 		// Verify calls
 		require.Equal(3, GetCallCount())
 		require.True(WasCommandCalled("git", "status"))
 		require.True(WasCommandCalled("tmux", "list-sessions"))
 		require.True(WasCommandCalled("echo", "test"))
 		require.False(WasCommandCalled("ls"))
-		
+
 		// Get specific calls
 		gitCalls := GetCommandCalls("git", "status")
 		require.Equal(1, len(gitCalls))
-		
+
 		tmuxCalls := GetCommandCalls("tmux", "list-sessions")
 		require.Equal(1, len(tmuxCalls))
-		
+
 		// Test disable
 		Disable()
 		require.False(globalMock.enabled)
-		
+
 		// Commands should still be recorded but responses ignored
 		// (in actual implementation, disabled mock returns real commands)
-		
+
 		// Re-enable and test
 		Enable()
 		require.True(globalMock.enabled)
-		
+
 		// Reset and verify clean state
 		Reset()
 		require.False(globalMock.enabled)

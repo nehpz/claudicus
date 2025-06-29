@@ -42,13 +42,13 @@ func executeReset(ctx context.Context, args []string) error {
 	// Ask for confirmation
 	fmt.Printf("This will permanently delete all uzi data from %s\n", uziDataPath)
 	fmt.Print("Are you sure you want to continue? (y/N): ")
-	
+
 	reader := bufio.NewReader(os.Stdin)
 	response, err := reader.ReadString('\n')
 	if err != nil {
 		return fmt.Errorf("failed to read user input: %w", err)
 	}
-	
+
 	response = strings.ToLower(strings.TrimSpace(response))
 	if response != "y" && response != "yes" {
 		fmt.Println("Reset cancelled")

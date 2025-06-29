@@ -13,10 +13,10 @@ type Status string
 const (
 	// StatusWorking indicates the agent is actively working
 	StatusWorking Status = "working"
-	
+
 	// StatusIdle indicates the agent is idle and waiting for tasks
 	StatusIdle Status = "idle"
-	
+
 	// StatusStuck indicates the agent appears to be stuck or blocked
 	StatusStuck Status = "stuck"
 )
@@ -25,12 +25,12 @@ const (
 // across monitor, state reader, and UI components
 type Metrics struct {
 	// Git-related metrics
-	Commits      int       `json:"commits"`       // Number of commits made
-	Insertions   int       `json:"insertions"`    // Lines of code added
-	Deletions    int       `json:"deletions"`     // Lines of code removed
-	FilesChanged int       `json:"files_changed"` // Number of files modified
+	Commits      int       `json:"commits"`        // Number of commits made
+	Insertions   int       `json:"insertions"`     // Lines of code added
+	Deletions    int       `json:"deletions"`      // Lines of code removed
+	FilesChanged int       `json:"files_changed"`  // Number of files modified
 	LastCommitAt time.Time `json:"last_commit_at"` // Timestamp of most recent commit
-	
+
 	// Current status
 	Status Status `json:"status"` // Current activity status
 }
@@ -49,8 +49,8 @@ func NewMetrics() *Metrics {
 
 // IsActive returns true if the metrics indicate recent activity
 func (m *Metrics) IsActive() bool {
-	return m.Status == StatusWorking || 
-		   (!m.LastCommitAt.IsZero() && time.Since(m.LastCommitAt) < 5*time.Minute)
+	return m.Status == StatusWorking ||
+		(!m.LastCommitAt.IsZero() && time.Since(m.LastCommitAt) < 5*time.Minute)
 }
 
 // HasCommits returns true if any commits have been recorded

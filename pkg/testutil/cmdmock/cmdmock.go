@@ -40,7 +40,9 @@ var globalMock = &MockState{
 }
 
 // Command is a mock replacement for exec.Command that can be used via:
-//   var execCommand = cmdmock.Command
+//
+//	var execCommand = cmdmock.Command
+//
 // in production files for testing
 func Command(name string, args ...string) *exec.Cmd {
 	globalMock.mu.Lock()
@@ -165,7 +167,7 @@ func GetCommandCalls(cmd string, args ...string) []CommandCall {
 
 	var matches []CommandCall
 	targetKey := makeKey(cmd, args)
-	
+
 	for _, call := range globalMock.calls {
 		if makeKey(call.Name, call.Args) == targetKey {
 			matches = append(matches, call)
@@ -204,18 +206,14 @@ func createTestSafeCommand(response CommandResponse) *exec.Cmd {
 		fi
 		exit %d
 	`, escapeShell(response.Stdout), response.Stderr, escapeShell(response.Stderr), response.ExitCode)
-	
+
 	// Create the base command
 	cmd := exec.Command("sh", "-c", script)
-	
+
 	// Override the Output method using reflection or a simpler approach
 	// For now, just return the command and handle Dir in the calling code
 	return cmd
 }
-
-
-
-
 
 // escapeShell escapes strings for safe use in shell commands
 func escapeShell(s string) string {

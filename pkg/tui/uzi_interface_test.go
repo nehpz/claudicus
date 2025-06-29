@@ -54,24 +54,24 @@ func (m *mockStateManagerForTest) SaveStateWithPort(prompt, branchName, sessionN
 // Test helpers
 func createTempStateFile(t *testing.T, states map[string]state.AgentState) string {
 	t.Helper()
-	
+
 	tmpFile, err := os.CreateTemp("", "state_*.json")
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	
+
 	data, err := json.Marshal(states)
 	if err != nil {
 		t.Fatalf("Failed to marshal states: %v", err)
 	}
-	
+
 	if _, err := tmpFile.Write(data); err != nil {
 		t.Fatalf("Failed to write state file: %v", err)
 	}
-	
+
 	tmpFile.Close()
 	t.Cleanup(func() { os.Remove(tmpFile.Name()) })
-	
+
 	return tmpFile.Name()
 }
 
@@ -84,18 +84,18 @@ func createSessionJSON(sessions []SessionInfo) string {
 
 func TestUziCLI_NewUziCLI(t *testing.T) {
 	setupUziTest()
-	
+
 	tests := []struct {
-		name     string
+		name      string
 		useConfig bool
-		config   ProxyConfig
+		config    ProxyConfig
 	}{
 		{
-			name:     "Default configuration",
+			name:      "Default configuration",
 			useConfig: false,
 		},
 		{
-			name:     "Custom configuration",
+			name:      "Custom configuration",
 			useConfig: true,
 			config: ProxyConfig{
 				Timeout:     10 * time.Second,
@@ -145,7 +145,7 @@ func TestUziCLI_NewUziCLI(t *testing.T) {
 
 func TestDefaultProxyConfig(t *testing.T) {
 	config := DefaultProxyConfig()
-	
+
 	if config.Timeout != 30*time.Second {
 		t.Errorf("Expected timeout 30s, got %v", config.Timeout)
 	}
@@ -164,7 +164,7 @@ func TestDefaultProxyConfig(t *testing.T) {
 
 func TestUziCLI_ExecuteCommand(t *testing.T) {
 	setupUziTest()
-	
+
 	tests := []struct {
 		name           string
 		command        string
@@ -210,7 +210,7 @@ func TestUziCLI_ExecuteCommand(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cli := NewUziCLI()
 
-			cmdmock.SetResponseWithArgs(tt.command, tt.args, 
+			cmdmock.SetResponseWithArgs(tt.command, tt.args,
 				tt.mockStdout, tt.mockStderr, tt.mockExitErr)
 
 			output, err := cli.executeCommand(tt.command, tt.args...)
@@ -255,7 +255,7 @@ func TestUziCLI_WrapError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := cli.wrapError(tt.operation, tt.inputErr)
-			
+
 			if tt.expectNil && result != nil {
 				t.Errorf("Expected nil error, got: %v", result)
 			}
@@ -277,7 +277,7 @@ func TestUziCLI_WrapError(t *testing.T) {
 
 func TestUziCLI_GetSessions(t *testing.T) {
 	setupUziTest()
-	
+
 	testSessions := []SessionInfo{
 		{
 			Name:         "agent-proj1-abc123-claude",
@@ -343,10 +343,10 @@ func TestUziCLI_GetSessions(t *testing.T) {
 			cli := NewUziCLI()
 
 			if tt.errorType == "command" {
-				cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"}, 
+				cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"},
 					"", "command failed", true)
 			} else {
-				cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"}, 
+				cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"},
 					tt.mockJSON, "", false)
 			}
 
@@ -381,7 +381,7 @@ func TestUziCLI_GetSessions(t *testing.T) {
 
 func TestUziCLI_GetSessionsLegacy_BehaviorParity(t *testing.T) {
 	setupUziTest()
-	
+
 	// Create test state
 	testStates := map[string]state.AgentState{
 		"agent-proj1-abc123-claude": {
@@ -399,13 +399,13 @@ func TestUziCLI_GetSessionsLegacy_BehaviorParity(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		setupStateMgr  bool
-		activeSession  []string
-		stateFile      string
-		expectedCount  int
-		expectedError  bool
-		description    string
+		name          string
+		setupStateMgr bool
+		activeSession []string
+		stateFile     string
+		expectedCount int
+		expectedError bool
+		description   string
 	}{
 		{
 			name:          "Normal operation with active sessions",
@@ -443,13 +443,13 @@ func TestUziCLI_GetSessionsLegacy_BehaviorParity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cli := NewUziCLI()
-			
+
 			if !tt.setupStateMgr {
 				cli.stateManager = nil
 			} else {
 				// Create temporary state file
 				stateFile := createTempStateFile(t, testStates)
-				
+
 				// Mock state manager methods
 				mockStateManager := &mockStateManagerForTest{
 					activeSessions: tt.activeSession,
@@ -575,9 +575,9 @@ func TestUziCLI_GetGitDiffTotals_EdgeCases(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Fresh setup for each test case
 			setupUziTest() // This calls cmdmock.Reset() and cmdmock.Enable()
-			
+
 			cli := NewUziCLI()
-			
+
 			// Create a test session state
 			sessionState := &state.AgentState{
 				WorktreePath: "/tmp/test-worktree",
@@ -638,7 +638,7 @@ func TestUziCLI_GetGitDiffTotals_CommandError(t *testing.T) {
 
 	// Mock git command failure
 	gitCmd := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
-	cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd}, 
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd},
 		"", "fatal: not a git repository", true)
 
 	insertions, deletions := cli.getGitDiffTotals("test-session", sessionState)
@@ -655,7 +655,7 @@ func TestUziCLI_GetGitDiffTotals_CommandError(t *testing.T) {
 
 func TestUziCLI_TmuxInteractions(t *testing.T) {
 	setupUziTest()
-	
+
 	testCases := []struct {
 		name            string
 		sessionName     string
@@ -729,7 +729,7 @@ func TestUziCLI_TmuxInteractions(t *testing.T) {
 			cli := NewUziCLI()
 
 			// Set up mock response
-			cmdmock.SetResponseWithArgs(tc.mockCmd, tc.mockArgs, 
+			cmdmock.SetResponseWithArgs(tc.mockCmd, tc.mockArgs,
 				tc.mockStdout, tc.mockStderr, tc.mockExitErr)
 
 			if strings.Contains(tc.name, "GetPaneContent") {
@@ -750,7 +750,7 @@ func TestUziCLI_TmuxInteractions(t *testing.T) {
 
 			if strings.Contains(tc.name, "GetAgentStatus") {
 				status := cli.getAgentStatus(tc.sessionName)
-				
+
 				// Verify status based on mock content
 				if tc.mockExitErr == false {
 					expectedStatus := "ready"
@@ -774,7 +774,7 @@ func TestUziCLI_TmuxInteractions(t *testing.T) {
 
 func TestUziCLI_SessionManagement(t *testing.T) {
 	setupUziTest()
-	
+
 	tests := []struct {
 		name          string
 		method        string
@@ -850,7 +850,7 @@ func TestUziCLI_SessionManagement(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cli := NewUziCLI()
 
-			cmdmock.SetResponseWithArgs(tt.mockCmd, tt.mockArgs, 
+			cmdmock.SetResponseWithArgs(tt.mockCmd, tt.mockArgs,
 				tt.mockStdout, tt.mockStderr, tt.mockExitErr)
 
 			var err error
@@ -906,12 +906,12 @@ func TestUziCLI_GetSessionState(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		sessionName    string
-		setupState     bool
-		expectedError  bool
-		expectedModel  string
-		description    string
+		name          string
+		sessionName   string
+		setupState    bool
+		expectedError bool
+		expectedModel string
+		description   string
 	}{
 		{
 			name:          "Existing session",
@@ -947,7 +947,7 @@ func TestUziCLI_GetSessionState(t *testing.T) {
 				// Create temp state file and set up mock state manager
 				stateFile := createTempStateFile(t, testStates)
 				defer os.Remove(stateFile)
-				
+
 				// Set up mock state manager
 				cli.stateManager = &mockStateManagerForTest{
 					activeSessions: []string{"agent-proj-abc123-claude"},
@@ -975,7 +975,7 @@ func TestUziCLI_GetSessionStatus(t *testing.T) {
 	cli := NewUziCLI()
 
 	// Mock tmux capture-pane for status detection
-	cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "test-session:agent", "-p"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "test-session:agent", "-p"},
 		"$ ready for input", "", false)
 
 	status, err := cli.GetSessionStatus("test-session")
@@ -1036,7 +1036,7 @@ func TestExtractAgentName_UziInterface(t *testing.T) {
 
 func TestUziClient_LegacyCompatibility(t *testing.T) {
 	setupUziTest()
-	
+
 	tests := []struct {
 		name           string
 		method         string
@@ -1051,11 +1051,11 @@ func TestUziClient_LegacyCompatibility(t *testing.T) {
 			description:   "Should delegate to state manager",
 		},
 		{
-			name:          "GetActiveSessions without state manager",
-			method:        "GetActiveSessions",
-			expectedError: false,
+			name:           "GetActiveSessions without state manager",
+			method:         "GetActiveSessions",
+			expectedError:  false,
 			expectedResult: []string(nil),
-			description:   "Should return nil when state manager is nil",
+			description:    "Should return nil when state manager is nil",
 		},
 		{
 			name:          "GetSessionState - Not implemented",
@@ -1064,11 +1064,11 @@ func TestUziClient_LegacyCompatibility(t *testing.T) {
 			description:   "Should return not implemented error",
 		},
 		{
-			name:          "GetSessionStatus - Stub implementation",
-			method:        "GetSessionStatus",
-			expectedError: false,
+			name:           "GetSessionStatus - Stub implementation",
+			method:         "GetSessionStatus",
+			expectedError:  false,
 			expectedResult: "unknown",
-			description:   "Should return unknown status",
+			description:    "Should return unknown status",
 		},
 		{
 			name:          "AttachToSession - Not implemented",
@@ -1093,7 +1093,7 @@ func TestUziClient_LegacyCompatibility(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client := NewUziClient()
-			
+
 			// For the nil state manager test
 			if strings.Contains(tt.name, "without state manager") {
 				client.stateManager = nil
@@ -1144,16 +1144,16 @@ func TestUziClient_LegacyCompatibility(t *testing.T) {
 
 func TestUziCLI_EdgeCases_Comprehensive(t *testing.T) {
 	setupUziTest()
-	
+
 	t.Run("Empty session name handling", func(t *testing.T) {
 		cli := NewUziCLI()
-		
+
 		// Test methods with empty session names
 		status := cli.getAgentStatus("")
 		if status != "unknown" {
 			t.Errorf("Expected 'unknown' status for empty session name, got %s", status)
 		}
-		
+
 		agentName := extractAgentName("")
 		if agentName != "" {
 			t.Errorf("Expected empty agent name for empty session, got %s", agentName)
@@ -1162,7 +1162,7 @@ func TestUziCLI_EdgeCases_Comprehensive(t *testing.T) {
 
 	t.Run("Very long session names", func(t *testing.T) {
 		longSessionName := strings.Repeat("a", 1000) + "-" + strings.Repeat("b", 1000)
-		
+
 		// Should handle gracefully without crashing
 		agentName := extractAgentName(longSessionName)
 		if agentName == "" {
@@ -1176,7 +1176,7 @@ func TestUziCLI_EdgeCases_Comprehensive(t *testing.T) {
 			"agent-proj.test-abc123-claude_v2",
 			"agent-proj with spaces-abc123-claude",
 		}
-		
+
 		for _, sessionName := range specialChars {
 			agentName := extractAgentName(sessionName)
 			// Should not crash and should return something reasonable
@@ -1188,10 +1188,10 @@ func TestUziCLI_EdgeCases_Comprehensive(t *testing.T) {
 
 	t.Run("Concurrent operations", func(t *testing.T) {
 		cli := NewUziCLI()
-		
+
 		// Mock successful command
 		cmdmock.SetResponseWithArgs("echo", []string{"concurrent"}, "success", "", false)
-		
+
 		// Run multiple operations concurrently
 		done := make(chan bool, 10)
 		for i := 0; i < 10; i++ {
@@ -1203,7 +1203,7 @@ func TestUziCLI_EdgeCases_Comprehensive(t *testing.T) {
 				done <- true
 			}()
 		}
-		
+
 		// Wait for all to complete
 		for i := 0; i < 10; i++ {
 			<-done
@@ -1215,7 +1215,7 @@ func TestUziCLI_EdgeCases_Comprehensive(t *testing.T) {
 
 func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 	setupUziTest()
-	
+
 	cli := NewUziCLI()
 
 	// Mock uzi ls --json for GetSessionsWithTmuxInfo
@@ -1232,7 +1232,7 @@ func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 			Port:         8080,
 		},
 	}
-	cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"}, 
+	cmdmock.SetResponseWithArgs("uzi", []string{"ls", "--json"},
 		createSessionJSON(testSessions), "", false)
 
 	// Test IsSessionAttached
@@ -1247,9 +1247,9 @@ func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 		t.Error("Expected non-empty activity level")
 	}
 
-	// Test GetAttachedSessionCount  
+	// Test GetAttachedSessionCount
 	// Mock tmux list-sessions for this
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_attached}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_attached}"},
 		"1\n0\n1\n", "", false)
 	count, err := cli.GetAttachedSessionCount()
 	if err != nil {
@@ -1264,7 +1264,7 @@ func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 
 	// Test GetTmuxSessionsByActivity
 	// Mock tmux list-sessions for activity data
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}:#{session_activity}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}:#{session_activity}"},
 		"session1:1234567890\nsession2:1234567891\n", "", false)
 	sessions, err := cli.GetTmuxSessionsByActivity()
 	if err != nil {
@@ -1294,11 +1294,11 @@ func TestUziCLI_TmuxEnhancedMethods(t *testing.T) {
 // Test AttachToSession method
 func TestUziCLI_AttachToSession(t *testing.T) {
 	setupUziTest()
-	
+
 	cli := NewUziCLI()
 
 	// Mock tmux attach-session command to succeed - need to mock exec.Command directly
-	cmdmock.SetResponseWithArgs("tmux", []string{"attach-session", "-t", "test-session"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"attach-session", "-t", "test-session"},
 		"", "", false)
 
 	// This would normally block in a real terminal, but with mocking it should return
@@ -1313,7 +1313,7 @@ func TestUziCLI_AttachToSession(t *testing.T) {
 	}
 
 	// Test with explicit command failure
-	cmdmock.SetResponseWithArgs("tmux", []string{"attach-session", "-t", "bad-session"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"attach-session", "-t", "bad-session"},
 		"", "session not found", true)
 
 	err = cli.AttachToSession("bad-session")
@@ -1328,11 +1328,11 @@ func TestUziCLI_InternalMethods(t *testing.T) {
 	cli := NewUziCLI()
 
 	// Mock empty tmux output (no sessions exist)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}|#{session_windows}|#{?session_attached,1,0}|#{session_created}|#{session_activity}"},
 		"", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_attached}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_attached}"},
 		"", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}:#{session_activity}"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"list-sessions", "-F", "#{session_name}:#{session_activity}"},
 		"", "", false)
 
 	// Refresh the cache to use our mocked commands
@@ -1457,14 +1457,14 @@ func TestUziCLI_GetAgentStatus(t *testing.T) {
 
 func mockTmuxAndGitCommands() {
 	// Mock common tmux commands for status detection
-	cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "agent-proj1-abc123-claude:agent", "-p"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "agent-proj1-abc123-claude:agent", "-p"},
 		"$ ready for input", "", false)
-	cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "agent-proj2-def456-coder:agent", "-p"}, 
+	cmdmock.SetResponseWithArgs("tmux", []string{"capture-pane", "-t", "agent-proj2-def456-coder:agent", "-p"},
 		"Thinking...\nesc to interrupt", "", false)
-	
+
 	// Mock git diff commands
 	gitCmd := "git add -A . && git diff --cached --shortstat HEAD && git reset HEAD > /dev/null"
-	cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd}, 
+	cmdmock.SetResponseWithArgs("sh", []string{"-c", gitCmd},
 		" 3 files changed, 15 insertions(+), 3 deletions(-)", "", false)
 }
 
@@ -1473,29 +1473,29 @@ func mockTmuxAndGitCommands() {
 func TestUziCLI_SpawnAgent_Success(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock git commands for agent creation
 	cmdmock.SetResponseWithArgs("git", []string{"rev-parse", "--short", "HEAD"}, "abc123", "", false)
 	cmdmock.SetResponseWithArgs("git", []string{"remote", "get-url", "origin"}, "https://github.com/user/project.git", "", false)
-	
+
 	// Mock worktree creation
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "git worktree add -b claude-project-abc123-1640000000 /Users/testuser/.local/share/uzi/worktrees/claude-project-abc123-1640000000"}, "", "", false)
-	
+
 	// Mock tmux session creation
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux new-session -d -s agent-project-abc123-claude -c /Users/testuser/.local/share/uzi/worktrees/claude-project-abc123-1640000000"}, "", "", false)
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux rename-window -t agent-project-abc123-claude:0 agent"}, "", "", false)
-	
+
 	// Mock agent command execution
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t agent-project-abc123-claude:agent C-m"}, "", "", false)
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t agent-project-abc123-claude:agent 'claude \"test prompt\"' C-m"}, "", "", false)
-	
+
 	// Create a mock state manager
 	mockStateManager := &mockStateManagerForTest{
 		activeSessions: []string{},
 		statePath:      "/tmp/test-state.json",
 	}
 	cli.stateManager = mockStateManager
-	
+
 	sessionName, err := cli.SpawnAgent("test prompt", "claude")
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1508,7 +1508,7 @@ func TestUziCLI_SpawnAgent_Success(t *testing.T) {
 func TestUziCLI_SpawnAgent_HelperMethods(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Test parseAgentConfigs
 	tests := []struct {
 		name        string
@@ -1522,7 +1522,7 @@ func TestUziCLI_SpawnAgent_HelperMethods(t *testing.T) {
 		{"invalid count", "claude:zero", 0, true},
 		{"zero count", "claude:0", 0, true},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configs, err := cli.parseAgentConfigs(tt.agentsStr)
@@ -1542,7 +1542,7 @@ func TestUziCLI_SpawnAgent_HelperMethods(t *testing.T) {
 func TestUziCLI_SpawnAgent_CommandMapping(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	tests := []struct {
 		agent    string
 		expected string
@@ -1554,7 +1554,7 @@ func TestUziCLI_SpawnAgent_CommandMapping(t *testing.T) {
 		{"random", "claude"},
 		{"unknown", "unknown"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.agent, func(t *testing.T) {
 			result := cli.getCommandForAgent(tt.agent)
@@ -1568,7 +1568,7 @@ func TestUziCLI_SpawnAgent_CommandMapping(t *testing.T) {
 func TestUziCLI_SpawnAgent_GetRandomAgentName(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Test non-random agent
 	result, err := cli.getRandomAgentName("claude")
 	if err != nil {
@@ -1577,7 +1577,7 @@ func TestUziCLI_SpawnAgent_GetRandomAgentName(t *testing.T) {
 	if result != "claude" {
 		t.Errorf("Expected 'claude', got %q", result)
 	}
-	
+
 	// Test random agent - should return a non-empty string
 	result, err = cli.getRandomAgentName("random")
 	if err != nil {
@@ -1591,11 +1591,11 @@ func TestUziCLI_SpawnAgent_GetRandomAgentName(t *testing.T) {
 func TestUziCLI_SpawnAgent_GetGitInfo(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock git commands
 	cmdmock.SetResponseWithArgs("git", []string{"rev-parse", "--short", "HEAD"}, "abc123", "", false)
 	cmdmock.SetResponseWithArgs("git", []string{"remote", "get-url", "origin"}, "https://github.com/user/project.git", "", false)
-	
+
 	gitHash, projectDir, err := cli.getGitInfo()
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1611,10 +1611,10 @@ func TestUziCLI_SpawnAgent_GetGitInfo(t *testing.T) {
 func TestUziCLI_SpawnAgent_GetGitInfo_Error(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock git command failure
 	cmdmock.SetResponseWithArgs("git", []string{"rev-parse", "--short", "HEAD"}, "", "fatal: not a git repository", true)
-	
+
 	_, _, err := cli.getGitInfo()
 	if err == nil {
 		t.Error("Expected error but got none")
@@ -1624,10 +1624,10 @@ func TestUziCLI_SpawnAgent_GetGitInfo_Error(t *testing.T) {
 func TestUziCLI_SpawnAgent_CreateWorktree(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock successful worktree creation
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "git worktree add -b test-branch /tmp/test-worktree"}, "", "", false)
-	
+
 	worktreePath, err := cli.createWorktree("test-branch", "test-worktree")
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1640,10 +1640,10 @@ func TestUziCLI_SpawnAgent_CreateWorktree(t *testing.T) {
 func TestUziCLI_SpawnAgent_CreateWorktree_Error(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock worktree creation failure
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "git worktree add -b test-branch /tmp/test-worktree"}, "", "fatal: git worktree failed", true)
-	
+
 	_, err := cli.createWorktree("test-branch", "test-worktree")
 	if err == nil {
 		t.Error("Expected error but got none")
@@ -1653,11 +1653,11 @@ func TestUziCLI_SpawnAgent_CreateWorktree_Error(t *testing.T) {
 func TestUziCLI_SpawnAgent_CreateTmuxSession(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock tmux commands
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux new-session -d -s test-session -c /tmp"}, "", "", false)
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux rename-window -t test-session:0 agent"}, "", "", false)
-	
+
 	err := cli.createTmuxSession("test-session", "/tmp")
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1667,10 +1667,10 @@ func TestUziCLI_SpawnAgent_CreateTmuxSession(t *testing.T) {
 func TestUziCLI_SpawnAgent_CreateTmuxSession_Error(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock tmux session creation failure
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux new-session -d -s test-session -c /tmp"}, "", "tmux: session exists", true)
-	
+
 	err := cli.createTmuxSession("test-session", "/tmp")
 	if err == nil {
 		t.Error("Expected error but got none")
@@ -1680,13 +1680,13 @@ func TestUziCLI_SpawnAgent_CreateTmuxSession_Error(t *testing.T) {
 func TestUziCLI_SpawnAgent_IsPortAvailable(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Test with a high port that should be available
 	available := cli.isPortAvailable(65432)
 	if !available {
 		t.Error("Expected port 65432 to be available")
 	}
-	
+
 	// Test with a reserved port that should not be available
 	// Note: This might fail in test environments where ports are not restricted
 	// So we'll just verify the method doesn't panic
@@ -1696,7 +1696,7 @@ func TestUziCLI_SpawnAgent_IsPortAvailable(t *testing.T) {
 func TestUziCLI_SpawnAgent_FindAvailablePort(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Test finding available port in high range
 	port, err := cli.findAvailablePort(65400, 65500, []int{})
 	if err != nil {
@@ -1705,7 +1705,7 @@ func TestUziCLI_SpawnAgent_FindAvailablePort(t *testing.T) {
 	if port < 65400 || port > 65500 {
 		t.Errorf("Expected port in range 65400-65500, got %d", port)
 	}
-	
+
 	// Test with assigned ports
 	assignedPorts := []int{65401, 65402, 65403}
 	port, err = cli.findAvailablePort(65400, 65410, assignedPorts)
@@ -1722,11 +1722,11 @@ func TestUziCLI_SpawnAgent_FindAvailablePort(t *testing.T) {
 func TestUziCLI_SpawnAgent_ExecuteAgentCommand(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock tmux commands for agent execution
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent C-m"}, "", "", false)
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent 'claude \"test prompt\"' C-m"}, "", "", false)
-	
+
 	err := cli.executeAgentCommand("test-session", "claude", "test prompt", "/tmp")
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1736,11 +1736,11 @@ func TestUziCLI_SpawnAgent_ExecuteAgentCommand(t *testing.T) {
 func TestUziCLI_SpawnAgent_ExecuteAgentCommand_Gemini(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Mock tmux commands for gemini agent execution (different format)
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent C-m"}, "", "", false)
 	cmdmock.SetResponseWithArgs("sh", []string{"-c", "tmux send-keys -t test-session:agent 'gemini -p \"test prompt\"' C-m"}, "", "", false)
-	
+
 	err := cli.executeAgentCommand("test-session", "gemini", "test prompt", "/tmp")
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1750,7 +1750,7 @@ func TestUziCLI_SpawnAgent_ExecuteAgentCommand_Gemini(t *testing.T) {
 func TestUziCLI_SpawnAgent_GetExistingSessionPorts(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// Test with nil state manager
 	ports, err := cli.getExistingSessionPorts(nil)
 	if err != nil {
@@ -1759,7 +1759,7 @@ func TestUziCLI_SpawnAgent_GetExistingSessionPorts(t *testing.T) {
 	if len(ports) != 0 {
 		t.Errorf("Expected empty ports list, got %v", ports)
 	}
-	
+
 	// Test with mock state manager and valid state file
 	testStates := map[string]state.AgentState{
 		"session1": {Port: 8080},
@@ -1767,11 +1767,11 @@ func TestUziCLI_SpawnAgent_GetExistingSessionPorts(t *testing.T) {
 		"session3": {Port: 0}, // Should be ignored
 	}
 	stateFile := createTempStateFile(t, testStates)
-	
+
 	mockStateManager := &mockStateManagerForTest{
 		statePath: stateFile,
 	}
-	
+
 	ports, err = cli.getExistingSessionPorts(mockStateManager)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
@@ -1800,12 +1800,12 @@ func TestUziCLI_SpawnAgent_StateManagerBridge(t *testing.T) {
 	if bridge == nil {
 		t.Error("Expected non-nil bridge")
 	}
-	
+
 	// Test SaveState method (should not error even without real state manager)
 	err := bridge.SaveState("prompt", "branch", "session", "path", "model")
 	// This will likely error since it's trying to save to a real path, but we test the method exists
 	_ = err // Acknowledge potential error
-	
+
 	// Test SaveStateWithPort method
 	err = bridge.SaveStateWithPort("prompt", "branch", "session", "path", "model", 8080)
 	_ = err // Acknowledge potential error
@@ -1814,7 +1814,7 @@ func TestUziCLI_SpawnAgent_StateManagerBridge(t *testing.T) {
 func TestUziCLI_SpawnAgent_LoadDefaultConfig(t *testing.T) {
 	setupUziTest()
 	cli := NewUziCLI()
-	
+
 	// This will likely fail since there's no uzi.yaml in test environment,
 	// but we test that the method doesn't panic
 	_, err := cli.loadDefaultConfig()

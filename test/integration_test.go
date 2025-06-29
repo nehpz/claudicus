@@ -23,7 +23,7 @@ func TestUziCommandIntegration(t *testing.T) {
 
 	cmd := exec.CommandContext(ctx, "uzi", "ls")
 	output, err := cmd.Output()
-	
+
 	// Command should succeed (even if no sessions)
 	if err != nil {
 		t.Errorf("uzi ls command failed: %v", err)
@@ -112,12 +112,12 @@ func TestSessionSorting(t *testing.T) {
 	// Should have same order (this tests our port-based sorting fix)
 	for i := 0; i < len(sessions1) && i < len(sessions2); i++ {
 		if sessions1[i].Name != sessions2[i].Name {
-			t.Errorf("Session order changed between calls at index %d: %s vs %s", 
+			t.Errorf("Session order changed between calls at index %d: %s vs %s",
 				i, sessions1[i].Name, sessions2[i].Name)
 		}
 
 		if sessions1[i].Port != sessions2[i].Port {
-			t.Errorf("Session port changed between calls for %s: %d vs %d", 
+			t.Errorf("Session port changed between calls for %s: %d vs %d",
 				sessions1[i].Name, sessions1[i].Port, sessions2[i].Port)
 		}
 	}

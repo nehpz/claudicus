@@ -19,79 +19,79 @@ func TestGetActivityStatus(t *testing.T) {
 		{
 			name: "Working - recent activity (30s ago)",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
-				Insertions:  10,
-				Deletions:   5,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
+				Insertions: 10,
+				Deletions:  5,
 			},
 			expectedStatus: "working",
 		},
 		{
 			name: "Working - 89s ago (just under boundary)",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-89 * time.Second).Format("2006-01-02T15:04:05Z"),
-				Insertions:  10,
-				Deletions:   5,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-89 * time.Second).Format("2006-01-02T15:04:05Z"),
+				Insertions: 10,
+				Deletions:  5,
 			},
 			expectedStatus: "working",
 		},
 		{
 			name: "Idle - 2 minutes ago with changes",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  10,
-				Deletions:   5,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 10,
+				Deletions:  5,
 			},
 			expectedStatus: "idle",
 		},
 		{
 			name: "Stuck - 5 minutes ago with no diffs",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  0,
-				Deletions:   0,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 0,
+				Deletions:  0,
 			},
 			expectedStatus: "stuck",
 		},
 		{
 			name: "Idle - 5 minutes ago with diffs",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  10,
-				Deletions:   5,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 10,
+				Deletions:  5,
 			},
 			expectedStatus: "idle",
 		},
 		{
 			name: "Unknown - invalid UpdatedAt, valid CreatedAt",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   "invalid-timestamp",
-				CreatedAt:   now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  5,
-				Deletions:   2,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  "invalid-timestamp",
+				CreatedAt:  now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 5,
+				Deletions:  2,
 			},
 			expectedStatus: "idle",
 		},
 		{
 			name: "Unknown - both timestamps invalid",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   "invalid-timestamp",
-				CreatedAt:   "invalid-timestamp",
-				Insertions:  5,
-				Deletions:   2,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  "invalid-timestamp",
+				CreatedAt:  "invalid-timestamp",
+				Insertions: 5,
+				Deletions:  2,
 			},
 			expectedStatus: "unknown",
 		},
@@ -118,45 +118,45 @@ func TestFormatActivityBar(t *testing.T) {
 		{
 			name: "Working activity bar",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
-				Insertions:  10,
-				Deletions:   5,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
+				Insertions: 10,
+				Deletions:  5,
 			},
 			expectedBars: []string{"▮▮▮"}, // Green working bar
 		},
 		{
 			name: "Idle activity bar",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  10,
-				Deletions:   5,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 10,
+				Deletions:  5,
 			},
 			expectedBars: []string{"▮▮▯"}, // Yellow idle bar
 		},
 		{
 			name: "Stuck activity bar",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  0,
-				Deletions:   0,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 0,
+				Deletions:  0,
 			},
 			expectedBars: []string{"▮▯▯"}, // Red stuck bar
 		},
 		{
 			name: "Unknown activity bar",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   "invalid-timestamp",
-				CreatedAt:   "invalid-timestamp",
-				Insertions:  5,
-				Deletions:   2,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  "invalid-timestamp",
+				CreatedAt:  "invalid-timestamp",
+				Insertions: 5,
+				Deletions:  2,
 			},
 			expectedBars: []string{"▯▯▯"}, // Gray unknown bar
 		},
@@ -166,7 +166,7 @@ func TestFormatActivityBar(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			item := NewSessionListItem(tc.session)
 			activityBar := item.formatActivityBar()
-			
+
 			// Check if the activity bar contains any of the expected bar patterns
 			found := false
 			for _, expectedBar := range tc.expectedBars {
@@ -175,7 +175,7 @@ func TestFormatActivityBar(t *testing.T) {
 					break
 				}
 			}
-			
+
 			if !found {
 				t.Errorf("Expected activity bar to contain one of %v, got: %s", tc.expectedBars, activityBar)
 			}
@@ -193,56 +193,56 @@ func TestFormatLastActivity(t *testing.T) {
 		{
 			name: "Seconds ago",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
+				Name:      "test-session",
+				AgentName: "claude",
+				UpdatedAt: now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
 			},
 			expectedContains: "s ago",
 		},
 		{
 			name: "Minutes ago",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Name:      "test-session",
+				AgentName: "claude",
+				UpdatedAt: now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
 			},
 			expectedContains: "m ago",
 		},
 		{
 			name: "Hours ago",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-2 * time.Hour).Format("2006-01-02T15:04:05Z"),
+				Name:      "test-session",
+				AgentName: "claude",
+				UpdatedAt: now.Add(-2 * time.Hour).Format("2006-01-02T15:04:05Z"),
 			},
 			expectedContains: "h ago",
 		},
 		{
 			name: "Days ago",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   now.Add(-2 * 24 * time.Hour).Format("2006-01-02T15:04:05Z"),
+				Name:      "test-session",
+				AgentName: "claude",
+				UpdatedAt: now.Add(-2 * 24 * time.Hour).Format("2006-01-02T15:04:05Z"),
 			},
 			expectedContains: "d ago",
 		},
 		{
 			name: "Invalid UpdatedAt, fallback to CreatedAt",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   "invalid-timestamp",
-				CreatedAt:   now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Name:      "test-session",
+				AgentName: "claude",
+				UpdatedAt: "invalid-timestamp",
+				CreatedAt: now.Add(-5 * time.Minute).Format("2006-01-02T15:04:05Z"),
 			},
 			expectedContains: "m ago",
 		},
 		{
 			name: "Both timestamps invalid",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   "invalid-timestamp",
-				CreatedAt:   "invalid-timestamp",
+				Name:      "test-session",
+				AgentName: "claude",
+				UpdatedAt: "invalid-timestamp",
+				CreatedAt: "invalid-timestamp",
 			},
 			expectedContains: "",
 		},
@@ -252,7 +252,7 @@ func TestFormatLastActivity(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			item := NewSessionListItem(tc.session)
 			lastActivity := item.formatLastActivity()
-			
+
 			if tc.expectedContains == "" {
 				if lastActivity != "" {
 					t.Errorf("Expected empty string for invalid timestamps, got: %s", lastActivity)
@@ -269,13 +269,13 @@ func TestFormatLastActivity(t *testing.T) {
 func TestActivityBarInTitle(t *testing.T) {
 	now := time.Now().UTC()
 	session := SessionInfo{
-		Name:        "test-session",
-		AgentName:   "claude",
-		Model:       "claude-3.5-sonnet",
-		Status:      "running",
-		UpdatedAt:   now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
-		Insertions:  10,
-		Deletions:   5,
+		Name:       "test-session",
+		AgentName:  "claude",
+		Model:      "claude-3.5-sonnet",
+		Status:     "running",
+		UpdatedAt:  now.Add(-30 * time.Second).Format("2006-01-02T15:04:05Z"),
+		Insertions: 10,
+		Deletions:  5,
 	}
 
 	item := NewSessionListItem(session)
@@ -298,15 +298,15 @@ func TestActivityBarInTitle(t *testing.T) {
 func TestLastActivityInDescription(t *testing.T) {
 	now := time.Now().UTC()
 	session := SessionInfo{
-		Name:        "test-session",
-		AgentName:   "claude",
-		Model:       "claude-3.5-sonnet",
-		Status:      "running",
-		UpdatedAt:   now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
-		Insertions:  10,
-		Deletions:   5,
-		Port:        3000,
-		Prompt:      "Create a web application",
+		Name:       "test-session",
+		AgentName:  "claude",
+		Model:      "claude-3.5-sonnet",
+		Status:     "running",
+		UpdatedAt:  now.Add(-2 * time.Minute).Format("2006-01-02T15:04:05Z"),
+		Insertions: 10,
+		Deletions:  5,
+		Port:       3000,
+		Prompt:     "Create a web application",
 	}
 
 	item := NewSessionListItem(session)
@@ -316,7 +316,7 @@ func TestLastActivityInDescription(t *testing.T) {
 	if !strings.Contains(description, "m ago") {
 		t.Errorf("Description should contain last activity time, got: %s", description)
 	}
-	
+
 	// Should still contain other expected elements
 	if !strings.Contains(description, "running") {
 		t.Errorf("Description should contain status, got: %s", description)
@@ -334,7 +334,7 @@ func TestLastActivityInDescription(t *testing.T) {
 
 func TestFormatStatusCoverage(t *testing.T) {
 	testCases := []struct {
-		status string
+		status      string
 		description string
 	}{
 		{"attached", "attached status"},
@@ -348,14 +348,14 @@ func TestFormatStatusCoverage(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			session := SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				Status:      tc.status,
+				Name:      "test-session",
+				AgentName: "claude",
+				Status:    tc.status,
 			}
-			
+
 			item := NewSessionListItem(session)
 			formattedStatus := item.formatStatus(tc.status)
-			
+
 			// Should return a non-empty styled string
 			if formattedStatus == "" {
 				t.Errorf("formatStatus should return non-empty string for status %s", tc.status)
@@ -373,34 +373,34 @@ func TestActivityStatusEdgeCases(t *testing.T) {
 		{
 			name: "Exactly 90 seconds - should be working",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   time.Now().UTC().Add(-90 * time.Second).Format("2006-01-02T15:04:05Z"),
-				Insertions:  5,
-				Deletions:   2,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  time.Now().UTC().Add(-90 * time.Second).Format("2006-01-02T15:04:05Z"),
+				Insertions: 5,
+				Deletions:  2,
 			},
 			description: "boundary case for working status",
 		},
 		{
 			name: "Exactly 3 minutes - should check diffs",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   time.Now().UTC().Add(-3 * time.Minute).Format("2006-01-02T15:04:05Z"),
-				Insertions:  0,
-				Deletions:   0,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  time.Now().UTC().Add(-3 * time.Minute).Format("2006-01-02T15:04:05Z"),
+				Insertions: 0,
+				Deletions:  0,
 			},
 			description: "boundary case for stuck status",
 		},
 		{
 			name: "Empty timestamps - should be unknown",
 			session: SessionInfo{
-				Name:        "test-session",
-				AgentName:   "claude",
-				UpdatedAt:   "",
-				CreatedAt:   "",
-				Insertions:  5,
-				Deletions:   2,
+				Name:       "test-session",
+				AgentName:  "claude",
+				UpdatedAt:  "",
+				CreatedAt:  "",
+				Insertions: 5,
+				Deletions:  2,
 			},
 			description: "empty timestamp handling",
 		},
@@ -410,7 +410,7 @@ func TestActivityStatusEdgeCases(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			item := NewSessionListItem(tc.session)
 			status := item.getActivityStatus()
-			
+
 			// Should return a valid status
 			validStatuses := []string{"working", "idle", "stuck", "unknown"}
 			found := false
@@ -420,7 +420,7 @@ func TestActivityStatusEdgeCases(t *testing.T) {
 					break
 				}
 			}
-			
+
 			if !found {
 				t.Errorf("getActivityStatus should return valid status, got: %s", status)
 			}

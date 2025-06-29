@@ -30,9 +30,9 @@ func (s SessionListItem) Title() string {
 	// Get status icon and activity bar using Claude Squad styling
 	statusIcon := s.formatStatusIcon(s.session.Status)
 	activityBar := s.formatActivityBar()
-	
+
 	// Format: [●] ▮▮▮ agent-name (model)
-	return fmt.Sprintf("%s %s %s %s", 
+	return fmt.Sprintf("%s %s %s %s",
 		statusIcon,
 		activityBar,
 		s.session.AgentName,
@@ -43,28 +43,28 @@ func (s SessionListItem) Title() string {
 func (s SessionListItem) Description() string {
 	// Build description with status, diff stats, dev URL, last activity, and prompt
 	var parts []string
-	
+
 	// Status with Claude Squad colors
 	status := s.formatStatus(s.session.Status)
 	parts = append(parts, status)
-	
+
 	// Git diff stats with Claude Squad green accent
 	if s.session.Insertions > 0 || s.session.Deletions > 0 {
 		diffStats := fmt.Sprintf("+%d/-%d", s.session.Insertions, s.session.Deletions)
 		parts = append(parts, ClaudeSquadAccentStyle.Render(diffStats))
 	}
-	
+
 	// Last activity time with muted styling
 	if lastActivity := s.formatLastActivity(); lastActivity != "" {
 		parts = append(parts, ClaudeSquadMutedStyle.Render(lastActivity))
 	}
-	
+
 	// Dev server URL with Claude Squad accent
 	if s.session.Port > 0 {
 		devURL := fmt.Sprintf("localhost:%d", s.session.Port)
 		parts = append(parts, ClaudeSquadAccentStyle.Render(devURL))
 	}
-	
+
 	// Truncated prompt with muted styling
 	prompt := s.session.Prompt
 	if len(prompt) > 40 { // Reduced to make room for activity time
@@ -73,7 +73,7 @@ func (s SessionListItem) Description() string {
 	if prompt != "" {
 		parts = append(parts, ClaudeSquadMutedStyle.Render(prompt))
 	}
-	
+
 	return strings.Join(parts, " │ ")
 }
 
@@ -88,11 +88,11 @@ func (s SessionListItem) formatStatusIcon(status string) string {
 	case "attached":
 		return ClaudeSquadAccentStyle.Render("●") // Claude Squad green
 	case "running":
-		return ClaudeSquadAccentStyle.Render("●") // Claude Squad green 
+		return ClaudeSquadAccentStyle.Render("●") // Claude Squad green
 	case "ready":
 		return ClaudeSquadAccentStyle.Render("○") // Claude Squad green outline
 	case "inactive":
-		return ClaudeSquadMutedStyle.Render("○")  // Muted gray
+		return ClaudeSquadMutedStyle.Render("○") // Muted gray
 	default:
 		return ClaudeSquadMutedStyle.Render("?")
 	}
@@ -129,30 +129,30 @@ func (s SessionListItem) getActivityStatus() string {
 			}
 		}
 	}
-	
+
 	// Calculate time since last activity
 	timeSince := time.Since(lastUpdate)
-	
+
 	// Activity classification rules:
 	// 1. Recent activity (<=90s) OR has uncommitted changes = working
 	// 2. No activity for >3 minutes AND no diffs = stuck
 	// 3. Everything else = idle
-	
+
 	// If there are uncommitted changes, agent is working
 	if s.session.Insertions > 0 || s.session.Deletions > 0 {
 		return "working"
 	}
-	
+
 	// If recent activity (within 90 seconds), agent is working
 	if timeSince <= 90*time.Second {
 		return "working"
 	}
-	
+
 	// If no activity for >3 minutes and no diffs, agent is stuck
 	if timeSince > 3*time.Minute {
 		return "stuck"
 	}
-	
+
 	// Otherwise, agent is idle
 	return "idle"
 }
@@ -160,7 +160,7 @@ func (s SessionListItem) getActivityStatus() string {
 // formatActivityBar returns a colored activity bar (▮▮▯ style)
 func (s SessionListItem) formatActivityBar() string {
 	activityStatus := s.getActivityStatus()
-	
+
 	switch activityStatus {
 	case "working":
 		// Green activity bar - fully active
@@ -187,10 +187,10 @@ func (s SessionListItem) formatLastActivity() string {
 			return ""
 		}
 	}
-	
+
 	// Calculate time since last activity
 	timeSince := time.Since(lastUpdate)
-	
+
 	// Format as human-readable duration
 	if timeSince < time.Minute {
 		return fmt.Sprintf("%d s ago", int(timeSince.Seconds()))
@@ -236,7 +236,7 @@ type ListModel struct {
 	height       int
 	allSessions  []SessionInfo // Store all sessions for filtering
 	filterType   FilterType    // Current filter type
-	stuckToggled bool         // Track if stuck filter is toggled on/off
+	stuckToggled bool          // Track if stuck filter is toggled on/off
 }
 
 // NewListModel creates a new list model with Claude Squad styling
@@ -255,11 +255,11 @@ func NewListModel(width, height int) ListModel {
 	l.Title = "Agent Sessions"
 	l.Styles.Title = ClaudeSquadHeaderStyle
 	l.Styles.TitleBar = ClaudeSquadHeaderBarStyle
-	
+
 	// Customize the empty state message
-	l.SetShowStatusBar(false) // Hide the status bar to prevent double messages
+	l.SetShowStatusBar(false)  // Hide the status bar to prevent double messages
 	l.SetShowPagination(false) // Hide pagination for cleaner look when few items
-	
+
 	return ListModel{
 		list:         l,
 		width:        width,
@@ -274,7 +274,7 @@ func NewListModel(width, height int) ListModel {
 func (m *ListModel) LoadSessions(sessions []SessionInfo) {
 	// Store all sessions for filtering
 	m.allSessions = sessions
-	
+
 	// Apply current filter and update list
 	m.applyFilter()
 }
@@ -318,7 +318,7 @@ func (m ListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update size when window changes
 		m.SetSize(msg.Width, msg.Height-4) // Account for header/footer
 	}
-	
+
 	var cmd tea.Cmd
 	listModel, cmd := m.list.Update(msg)
 	m.list = listModel
@@ -331,22 +331,22 @@ func (m ListModel) View() string {
 	if len(m.list.Items()) == 0 {
 		emptyMessage := ClaudeSquadMutedStyle.Render("No active agent sessions")
 		headerView := ClaudeSquadHeaderStyle.Render("Agent Sessions")
-		
+
 		// Calculate padding to center the message
 		maxWidth := m.width - 4 // Account for border padding
 		padding := (maxWidth - len("No active agent sessions")) / 2
 		if padding < 0 {
 			padding = 0
 		}
-		
-		emptyView := fmt.Sprintf("%s\n\n%s%s", 
+
+		emptyView := fmt.Sprintf("%s\n\n%s%s",
 			headerView,
 			strings.Repeat(" ", padding),
 			emptyMessage)
-		
+
 		return ClaudeSquadBorderStyle.Render(emptyView)
 	}
-	
+
 	return ClaudeSquadBorderStyle.Render(m.list.View())
 }
 
@@ -393,13 +393,13 @@ func (m *ListModel) GetFilterStatus() string {
 // applyFilter applies the current filter to sessions and updates the list
 func (m *ListModel) applyFilter() {
 	filteredSessions := m.filterSessions(m.allSessions)
-	
+
 	// Convert SessionInfo slice to list.Item slice
 	items := make([]list.Item, len(filteredSessions))
 	for i, session := range filteredSessions {
 		items[i] = NewSessionListItem(session)
 	}
-	
+
 	// Update the list with filtered items
 	m.list.SetItems(items)
 }
@@ -409,12 +409,12 @@ func (m *ListModel) filterSessions(sessions []SessionInfo) []SessionInfo {
 	if m.filterType == FilterNone {
 		return sessions
 	}
-	
+
 	var filtered []SessionInfo
 	for _, session := range sessions {
 		item := NewSessionListItem(session)
 		activityStatus := item.getActivityStatus()
-		
+
 		switch m.filterType {
 		case FilterStuck:
 			if activityStatus == "stuck" {
@@ -426,7 +426,7 @@ func (m *ListModel) filterSessions(sessions []SessionInfo) []SessionInfo {
 			}
 		}
 	}
-	
+
 	return filtered
 }
 
@@ -434,6 +434,7 @@ func (m *ListModel) filterSessions(sessions []SessionInfo) []SessionInfo {
 func (m *ListModel) Items() []list.Item {
 	return m.list.Items()
 }
+
 // SetFilter sets the filter type for test compatibility
 func (m *ListModel) SetFilter(filterType FilterType) {
 	m.filterType = filterType

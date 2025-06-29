@@ -10,9 +10,9 @@ var TestTime = time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 // TimeFreeze allows controlling time in tests.
 type TimeFreeze struct {
-	mu   sync.RWMutex
-	now  time.Time
-	t    testingT
+	mu  sync.RWMutex
+	now time.Time
+	t   testingT
 }
 
 type testingT interface {

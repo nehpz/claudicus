@@ -883,12 +883,12 @@ func TestGetSessionStatus(t *testing.T) {
 
 			td := NewTmuxDiscovery()
 			td.tmux = &TmuxMock{
-			ListSessionsFunc: func() ([]byte, error) {
-				if tt.tmuxError {
-					return nil, fmt.Errorf("command not found: tmux")
-				}
-				return []byte(tt.tmuxOutput), nil
-			},
+				ListSessionsFunc: func() ([]byte, error) {
+					if tt.tmuxError {
+						return nil, fmt.Errorf("command not found: tmux")
+					}
+					return []byte(tt.tmuxOutput), nil
+				},
 				ListWindowsFunc: func(sessionName string) ([]byte, error) {
 					return []byte(tt.windowOutput), nil
 				},
@@ -1127,12 +1127,12 @@ func TestGetAttachedSessionCount(t *testing.T) {
 
 			td := NewTmuxDiscovery()
 			td.tmux = &TmuxMock{
-			ListSessionsFunc: func() ([]byte, error) {
-				if tt.expectError {
-					return nil, fmt.Errorf("command not found: tmux")
-				}
-				return []byte(tt.tmuxOutput), nil
-			},
+				ListSessionsFunc: func() ([]byte, error) {
+					if tt.expectError {
+						return nil, fmt.Errorf("command not found: tmux")
+					}
+					return []byte(tt.tmuxOutput), nil
+				},
 				ListWindowsFunc: func(sessionName string) ([]byte, error) {
 					return []byte("main"), nil
 				},
