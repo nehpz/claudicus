@@ -5,6 +5,11 @@ package tui
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +17,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/nehpz/claudicus/pkg/activity"
+	"github.com/nehpz/claudicus/pkg/config"
 )
 
 // RefreshMsg is sent by the ticker to refresh sessions without clearing screen
@@ -27,6 +33,9 @@ type App struct {
 	diffPreview     *DiffPreviewModel
 	broadcastInput   *BroadcastInputModel
 	confirmModal    *ConfirmationModal
+	checkpointModal CheckpointModal
+	agentForm       AgentFormModel
+	progressModal   ProgressModal
 	keys            KeyMap
 	ticker          *time.Ticker
 	activityMonitor *activity.AgentActivityMonitor
@@ -45,6 +54,9 @@ func NewApp(uzi UziInterface) *App {
 	diffPreview := NewDiffPreviewModel(40, 24) // Default size, will be updated on first render
 	broadcastInput := NewBroadcastInputModel()
 	confirmModal := NewConfirmationModal()
+	checkpointModal := NewCheckpointModal()
+	agentForm := NewAgentFormModel()
+	progressModal := NewProgressModal()
 	
 	activityMonitor := activity.NewAgentActivityMonitor()
 	// Create context for the monitor with cancellation
@@ -63,6 +75,9 @@ func NewApp(uzi UziInterface) *App {
 		diffPreview:     diffPreview,
 		broadcastInput:  broadcastInput,
 		confirmModal:    confirmModal,
+		checkpointModal: checkpointModal,
+		agentForm:       agentForm,
+		progressModal:   progressModal,
 		keys:            DefaultKeyMap(),
 		ticker:          nil, // Will be created in Init
 		activityMonitor: activityMonitor,
@@ -139,6 +154,27 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, modalCmd
 		}
 		
+		// Handle checkpoint modal when visible
+		if a.checkpointModal.IsVisible() {
+			var modalCmd tea.Cmd
+			a.checkpointModal, modalCmd = a.checkpointModal.Update(msg)
+			return a, modalCmd
+		}
+		
+		// Handle agent form when active
+		if a.agentForm.IsActive() {
+			var formCmd tea.Cmd
+			a.agentForm, formCmd = a.agentForm.Update(msg)
+			return a, formCmd
+		}
+		
+		// Handle progress modal when active
+		if a.progressModal.IsActive() {
+			var progressCmd tea.Cmd
+			a.progressModal, progressCmd = a.progressModal.Update(msg)
+			return a, progressCmd
+		}
+		
 		// Handle broadcast input when active
 		if a.broadcastInput.IsActive() {
 			switch {
@@ -189,11 +225,39 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return a, nil
-			
-		case key.Matches(msg, a.keys.Refresh):
-			// Manual refresh
-			a.loading = true
-			return a, a.refreshSessions()
+
+	case key.Matches(msg, a.keys.Config):
+		// Load the `uzi.yaml` configuration
+		config, err := config.LoadConfig("uzi.yaml")
+		if err != nil {
+			// If file doesn't exist create a starter file
+			if os.IsNotExist(err) {
+				starterConfig := config.Config{
+					DevCommand: nil,
+					PortRange:  nil,
+				}
+				config.WriteStarterConfig("uzi.yaml", starterConfig)
+			} else {	
+				// Handle other errors loading config
+				return a, func() tea.Msg { return err }
+			}
+		}
+
+		// Open YAML editor
+		if err := a.openEditor("uzi.yaml"); err != nil {
+			return a, func() tea.Msg { return err }
+		}
+
+		// Validate configuration
+		if config.DevCommand == nil || *config.DevCommand == "" {
+			return a, func() tea.Msg { return fmt.Errorf("devCommand is empty") }
+		}
+		
+		if config.PortRange == nil || !isValidPortRange(*config.PortRange) {
+			return a, func() tea.Msg { return fmt.Errorf("Invalid portRange") }
+		}
+		
+		return a, nil
 			
 		case key.Matches(msg, a.keys.Enter):
 			// Handle session selection/attachment
@@ -246,6 +310,25 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Clear any active filter
 			a.list.ClearFilter()
 			return a, nil
+			
+		case key.Matches(msg, a.keys.Checkpoint):
+			// Show checkpoint modal for selected agent
+			if selected := a.list.SelectedSession(); selected != nil {
+				// Get all sessions for agent selection
+				sessions, err := a.uzi.GetSessions()
+				if err == nil {
+					a.checkpointModal.SetAgents(sessions)
+					a.checkpointModal.SetSize(a.width, a.height)
+					a.checkpointModal.SetVisible(true)
+				}
+				return a, nil
+			}
+			
+		case key.Matches(msg, a.keys.NewAgent):
+			// Show agent creation form
+			a.agentForm.SetActive(true)
+			a.agentForm.SetSize(a.width, a.height)
+			return a, spinnerTick() // Start spinner for form
 		}
 		
 		// In split view, handle navigation differently
@@ -320,6 +403,89 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case RefreshMsg:
 		// Sessions have been refreshed - no action needed
 		// The list has already been updated in refreshSessions()
+		return a, nil
+		
+	case AgentFormSubmitMsg:
+		// Handle agent form submission
+		a.agentForm.SetActive(false)
+		a.progressModal.SetActive(true)
+		a.progressModal.SetSize(a.width, a.height)
+		
+		// Start async agent creation
+		opts := msg.AgentType + ":" + msg.Count + ":" + msg.Prompt
+		progressChan, err := a.uzi.SpawnAgentInteractive(opts)
+		if err != nil {
+			a.progressModal.SetError(err.Error())
+			return a, nil
+		}
+		
+		// Start monitoring progress
+		return a, func() tea.Msg {
+			// Wait for completion in a goroutine
+			go func() {
+				select {
+				case <-progressChan:
+					// Agent creation completed successfully
+					return // Success handled by the channel
+				}
+			}()
+		return ProgressStepMsg{Step: ProgressStepSetupWorktree}
+		}
+		
+	case ProgressStepMsg:
+		// Update progress modal
+		a.progressModal.NextStep()
+		if msg.Message != "" {
+			a.progressModal.SetMessage(msg.Message)
+		}
+		return a, nil
+		
+	case ProgressErrorMsg:
+		// Handle progress error
+		a.progressModal.SetError(msg.Error)
+		return a, nil
+		
+	case ProgressCompleteMsg:
+		// Handle completion
+		a.progressModal.NextStep() // Move to complete step
+		return a, tea.Batch(
+			a.refreshSessions(), // Refresh to show new session
+			func() tea.Msg {
+				// Auto-close modal after a delay
+				time.Sleep(2 * time.Second)
+				a.progressModal.SetActive(false)
+				return nil
+			},
+		)
+		
+	case SpinnerTickMsg:
+		// Update spinner in progress modal
+		var progressCmd tea.Cmd
+		a.progressModal, progressCmd = a.progressModal.Update(msg)
+		return a, progressCmd
+		
+	case CheckpointMsg:
+		// Handle checkpoint request
+		return a, func() tea.Msg {
+			err := a.uzi.RunCheckpoint(msg.AgentName, msg.CommitMessage)
+			if err != nil {
+				return CheckpointCompleteMsg{Success: false, Error: err.Error()}
+			}
+			return CheckpointCompleteMsg{Success: true}
+		}
+		
+	case CheckpointCompleteMsg:
+		// Handle checkpoint completion
+		a.checkpointModal.SetComplete(msg.Success, msg.Error)
+		if msg.Success {
+			// Refresh sessions after successful checkpoint
+			return a, a.refreshSessions()
+		}
+		return a, nil
+		
+	case CheckpointProgressMsg:
+		// Handle checkpoint progress updates
+		a.checkpointModal.SetProgress(msg.Output, msg.IsError, msg.Conflicts)
 		return a, nil
 		
 	case ModalMsg:
@@ -439,9 +605,27 @@ func (a *App) View() string {
 			listView = lipgloss.JoinVertical(lipgloss.Left, listView, broadcastView)
 		}
 		
+		// Add agent form if active
+		if a.agentForm.IsActive() {
+			formView := a.agentForm.View()
+			listView = lipgloss.JoinVertical(lipgloss.Left, listView, formView)
+		}
+		
+		// Add progress modal if active
+		if a.progressModal.IsActive() {
+			modalView := a.progressModal.View()
+			listView = lipgloss.JoinVertical(lipgloss.Left, listView, modalView)
+		}
+		
 		// Add confirmation modal if visible
 		if a.confirmModal != nil && a.confirmModal.IsVisible() {
 			modalView := a.confirmModal.View()
+			listView = lipgloss.JoinVertical(lipgloss.Left, listView, modalView)
+		}
+		
+		// Add checkpoint modal if visible
+		if a.checkpointModal.IsVisible() {
+			modalView := a.checkpointModal.View()
 			listView = lipgloss.JoinVertical(lipgloss.Left, listView, modalView)
 		}
 		
@@ -463,5 +647,67 @@ func (a *App) Cleanup() {
 func getStateManager() StateManagerInterface {
 	// Create a new StateManagerBridge instance
 	return NewStateManagerBridge()
+}
+
+// openEditor opens the specified file in the system editor
+func (a *App) openEditor(filepath string) error {
+	// Try to use EDITOR environment variable first, fallback to sensible defaults
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		// Fallback to common editors
+		for _, fallback := range []string{"nano", "vi", "vim"} {
+			if _, err := exec.LookPath(fallback); err == nil {
+				editor = fallback
+				break
+			}
+		}
+	}
+	
+	if editor == "" {
+		return fmt.Errorf("no suitable editor found. Please set EDITOR environment variable")
+	}
+	
+	// Run the editor
+	cmd := exec.Command(editor, filepath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	
+	return cmd.Run()
+}
+
+// isValidPortRange validates a port range string (e.g., "3000-3010")
+func isValidPortRange(portRange string) bool {
+	if portRange == "" {
+		return false
+	}
+	
+	// Match pattern like "3000-3010" or "8080"
+	pattern := `^(\d+)(?:-(\d+))?$`
+	regex, err := regexp.Compile(pattern)
+	if err != nil {
+		return false
+	}
+	
+	matches := regex.FindStringSubmatch(portRange)
+	if len(matches) == 0 {
+		return false
+	}
+	
+	// Parse start port
+	startPort, err := strconv.Atoi(matches[1])
+	if err != nil || startPort < 1 || startPort > 65535 {
+		return false
+	}
+	
+	// Parse end port if provided
+	if matches[2] != "" {
+		endPort, err := strconv.Atoi(matches[2])
+		if err != nil || endPort < 1 || endPort > 65535 || endPort < startPort {
+			return false
+		}
+	}
+	
+	return true
 }
 

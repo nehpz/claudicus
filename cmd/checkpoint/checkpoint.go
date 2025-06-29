@@ -142,8 +142,8 @@ func executeCheckpoint(ctx context.Context, args []string) error {
 
 	fmt.Printf("Checkpointing %s commits from agent: %s\n", changeCount, agentName)
 
-	// Rebase the agent branch onto the current branch
-	rebaseCmd := exec.CommandContext(ctx, "git", "rebase", agentBranchName)
+	// Rebase the agent branch onto the current branch using --no-pager
+	rebaseCmd := exec.CommandContext(ctx, "git", "--no-pager", "rebase", agentBranchName)
 	rebaseCmd.Dir = currentDir
 	rebaseCmd.Stdout = os.Stdout
 	rebaseCmd.Stderr = os.Stderr

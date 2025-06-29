@@ -61,9 +61,21 @@ func (m *MockUziInterface) RunCommand(command string) error {
 	return nil
 }
 
+func (m *MockUziInterface) RunCheckpoint(agentName string, message string) error {
+	return nil // Mock implementation
+}
+
 func (m *MockUziInterface) SpawnAgent(prompt, model string) (string, error) {
 	// Mock implementation - return a fake session name
 	return "agent-test-abc123-new-spawned", nil
+}
+
+func (m *MockUziInterface) SpawnAgentInteractive(opts string) (<-chan struct{}, error) {
+	// Mock implementation - return a channel that immediately signals completion
+	ch := make(chan struct{}, 1)
+	ch <- struct{}{}
+	close(ch)
+	return ch, nil
 }
 
 func TestKillAgentHandling(t *testing.T) {

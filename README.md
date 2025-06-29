@@ -1,9 +1,8 @@
 # Claudicus
 
-> **Operational Excellence + UX Excellence** - Combining Uzi's speed with Claude Squad's beautiful coordination capabilities
+> **Operational Excellence + UX Excellence** - A unified TUI interface that harnesses Uzi's speed under the hood while providing Claude Squad's beautiful coordination capabilities
 
-*The definitive platform for safe, multi-agent software development that eliminates the tradeoff between 
-operational efficiency and user experience quality.*
+*The definitive platform for safe, multi-agent software development that combines fast operations with rich visual experience in one seamless interface.*
 
 See [PRODUCT_VISION.md](PRODUCT_VISION.md) for our complete vision of operational + UX excellence.
 
@@ -23,7 +22,11 @@ go install github.com/nehpz/claudicus@latest
 export PATH="$PATH:$HOME/go/bin"
 ```
 
-## Prerequisites
+**Note**: The installed binary is named `uzi`, which powers the TUI interface. Use the TUI for a seamless experience leveraging Uzi's speed.
+
+### TUI Interface
+
+The TUI is the primary interface for managing multi-agent workflows, designed to harness Uzi's speed under the hood while providing a rich visual experience. All commands and operations can be managed within the TUI, ensuring a unified and efficient user experience.
 
 Before using Claudicus, ensure you have:
 
@@ -32,47 +35,31 @@ Before using Claudicus, ensure you have:
 - **Go**: For installation (version 1.24.3+)
 - **AI tool of choice**: Such as `claude`, `cursor`, `aider`, `codex`, etc.
 
-## Quick Start / Basic Workflow
+## Quick Start / TUI-First Workflow
 
 ### 1. Initialize your project
 
 ```bash
-# Create claudicus.yaml configuration in your project root
-echo "devCommand: npm install && npm run dev -- --port \$PORT" > claudicus.yaml
-echo "portRange: 3000-3010" >> claudicus.yaml
+# Create uzi.yaml configuration in your project root
+echo "devCommand: npm install && npm run dev -- --port \$PORT" > uzi.yaml
+echo "portRange: 3000-3010" >> uzi.yaml
 ```
 
-### 2. Start multiple agents on a task
+### 2. Launch the TUI interface
 
 ```bash
-claudicus prompt --agents claude:3,cursor:2 "Implement user authentication with JWT"
+uzi tui  # Primary interface - combines Uzi's speed with visual excellence
 ```
 
-### 3. Monitor agent progress (Interactive TUI)
+### 3. Create and manage agents visually
 
-```bash
-claudicus tui  # Launch beautiful visual interface
-# OR
-claudicus ls -w  # Watch mode in terminal
-```
+- **Create agents**: Use the TUI prompts to start multiple AI agents
+- **Monitor progress**: Real-time visual status updates and diff tracking
+- **Send broadcasts**: Press 'b' to send messages to all active agents
+- **Manage lifecycle**: Kill, restart, and coordinate agents with keyboard shortcuts
+- **Merge work**: Use built-in checkpoint features to integrate agent changes
 
-### 4. Auto-handle agent prompts
-
-```bash
-claudicus watch  # Automatically handles tool confirmations
-```
-
-### 5. Send updates to all agents
-
-```bash
-claudicus broadcast "Add input validation to all forms"
-```
-
-### 6. Merge completed work
-
-```bash
-claudicus checkpoint agent-name "feat: implement user authentication"
-```
+All operations leverage Uzi's fast backend operations through an intuitive visual interface.
 
 ## Features
 
@@ -115,9 +102,9 @@ claudicus checkpoint agent-name "feat: implement user authentication"
 
 ## Configuration
 
-### claudicus.yaml
+### uzi.yaml
 
-Create a `claudicus.yaml` file in your project root to configure Claudicus:
+Create a `uzi.yaml` file in your project root to configure Claudicus:
 
 ```yaml
 devCommand: cd myapp && npm install && npm run dev --port $PORT
@@ -146,110 +133,52 @@ portRange: 3000-3010
 - Format: `start-end` (e.g., `3000-3010`)
 - Ensures no port conflicts between multiple agents
 
-## Detailed Command Reference
+## Primary Interface: TUI
 
-### Core Commands
+Claudicus is designed around a unified TUI (Terminal User Interface) that leverages Uzi's speed and reliability under the hood. All operations are performed through intuitive keyboard shortcuts within the TUI.
 
-#### `claudicus prompt` (alias: `p`)
-
-Creates new agent sessions with the specified prompt.
+### Launch the TUI
 
 ```bash
-claudicus prompt --agents claude:2,cursor:1 "Build a todo app with React"
-claudicus p --agents random:5 "Fix all TypeScript errors"
+uzi tui
 ```
 
-**Options:**
+The TUI provides all functionality needed for multi-agent development:
 
-- `--agents`: Specify agents and counts in format `agent:count[,agent:count...]`
-- Use `random` as agent name for random agent names
+- **Agent Creation**: Start multiple agents with configurable prompts
+- **Real-time Monitoring**: Visual status updates and progress tracking
+- **Session Management**: Kill, restart, and manage agent lifecycle
+- **Broadcasting**: Send messages to all active agents
+- **Checkpointing**: Merge agent work into your main branch
+- **Diff Preview**: Syntax-highlighted code changes
+- **Interactive Controls**: Keyboard-driven interface for all operations
 
-#### `claudicus ls` (alias: `l`) 
+### Advanced CLI Commands (Backend Support)
 
-Lists all active agent sessions with their status.
+While the TUI is the primary interface, these CLI commands power the backend operations:
+
+#### `uzi prompt` - Agent Creation Backend
+
+Used internally by the TUI for agent spawning:
 
 ```bash
-claudicus ls       # List active sessions
-claudicus ls -w    # Watch mode - refreshes every second
-claudicus ls --json # JSON output format
+uzi prompt --agents claude:2,cursor:1 "Build a todo app with React"
 ```
 
-```text
-AGENT    MODEL  STATUS    DIFF  ADDR                     PROMPT
-brian    claude  ready  +0/-0  http://localhost:3003  Implement user authentication with JWT
-gregory  cursor  ready  +12/-0  http://localhost:3001  Add comprehensive test coverage
-```
+#### `uzi ls` - Session Listing Backend
 
-#### `claudicus tui`
-
-Launch the interactive Terminal User Interface for visual agent management.
+Provides session data to the TUI:
 
 ```bash
-claudicus tui
+uzi ls --json  # JSON output for TUI consumption
 ```
 
-#### `claudicus watch` (alias: `w`)
+#### `uzi reset` - System Reset
 
-Monitors all agent sessions and automatically handles prompts.
-
-```bash
-claudicus watch
-```
-
-- Auto-presses Enter for trust prompts
-- Handles continuation confirmations  
-- Monitors session state changes
-- Refreshes active session list automatically
-- Runs until interrupted (Ctrl+C)
-- Replaces the deprecated "auto" command with improved functionality
-
-#### `claudicus kill` (alias: `k`)
-
-Terminates agent sessions and cleans up resources.
+Cleans up all Claudicus data:
 
 ```bash
-claudicus kill agent-name    # Kill specific agent
-claudicus kill all          # Kill all agents
-```
-
-#### `claudicus run` (alias: `r`)
-
-Executes a command in all active agent sessions.
-
-```bash
-claudicus run "git status"              # Run in all agents
-claudicus run --delete "npm test"       # Run and delete the window after
-```
-
-#### `claudicus broadcast` (alias: `b`)
-
-Sends a message to all active agent sessions via tmux.
-
-```bash
-claudicus broadcast "Please add error handling to all API calls"
-```
-
-The broadcast command:
-
-- Automatically discovers all active agent sessions
-- Sends the message directly to each agent's tmux terminal
-- Provides feedback on which sessions received the message
-- Works with any AI tool running in the agent sessions
-
-#### `claudicus checkpoint` (alias: `c`)
-
-Makes a commit and rebases changes from an agent's worktree into your current branch.
-
-```bash
-claudicus checkpoint agent-name "feat: implement user authentication"
-```
-
-#### `claudicus reset`
-
-Removes all Claudicus data and configuration.
-
-```bash
-claudicus reset
+uzi reset
 ```
 
 **⚠️ Warning**: This deletes all data in `~/.local/share/claudicus`
@@ -272,7 +201,7 @@ The TUI (Terminal User Interface) provides a beautiful, real-time visual interfa
 ### How to launch
 
 ```bash
-claudicus tui
+uzi tui
 ```
 
 The TUI automatically detects terminal capabilities and provides rich visual feedback with Claude Squad's color scheme.
@@ -304,29 +233,16 @@ The interface maintains responsiveness during all operations and properly restor
 
 ## Advanced Usage
 
-**Running different AI tools:**
+**TUI-driven multi-agent workflows:**
 
-```bash
-claudicus prompt --agents=claude:2,aider:2,cursor:1,gemini:1 "Refactor the authentication system"
-```
+- Launch TUI: `uzi tui`
+- Create agents with different AI tools using TUI prompts
+- Monitor all agents visually in real-time
+- Send broadcasts to all agents using the 'b' key
+- Manage agent lifecycle with keyboard shortcuts
+- Preview and merge changes with built-in diff viewer
 
-**Using random agent names:**
-
-```bash
-claudicus prompt --agents=random:5 "Fix all TypeScript errors"
-```
-
-**Running tests across all agents:**
-
-```bash
-claudicus run "npm test"
-```
-
-**Watch mode for hands-free operation:**
-
-```bash
-claudicus watch  # Replaces the deprecated "auto" command
-```
+**The TUI combines all operations into one unified, fast interface powered by Uzi's reliable backend.**
 
 ## Architecture at a Glance
 

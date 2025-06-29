@@ -72,8 +72,14 @@ type UziInterface interface {
 	// RunCommand executes a command in all sessions
 	RunCommand(command string) error
 	
+	// RunCheckpoint creates a checkpoint for an agent
+	RunCheckpoint(agentName string, message string) error
+	
 	// SpawnAgent creates a new agent and returns the session name
 	SpawnAgent(prompt, model string) (string, error)
+
+	// SpawnAgentInteractive launches an interactive agent creation
+	SpawnAgentInteractive(opts string) (<-chan struct{}, error)
 }
 
 // ProxyConfig defines configuration for the UziCLI proxy
@@ -403,6 +409,16 @@ func (c *UziCLI) RunCommand(command string) error {
 	_, err := c.executeCommand("uzi", "run", command)
 	if err != nil {
 		return c.wrapError("RunCommand", err)
+	}
+	return nil
+}
+
+// RunCheckpoint implements UziInterface using the proxy pattern with streaming git output
+func (c *UziCLI) RunCheckpoint(agentName string, message string) error {
+	// Use the checkpoint command but capture detailed output
+	output, err := c.executeCommand("uzi", "checkpoint", agentName, message)
+	if err != nil {
+		return c.wrapError("RunCheckpoint", fmt.Errorf("%w\nOutput: %s", err, string(output)))
 	}
 	return nil
 }
@@ -770,6 +786,21 @@ func (c *UziClient) RefreshSessions() error {
 	return nil
 }
 
+func (c *UziClient) SpawnAgent(prompt, model string) (string, error) {
+	// Stub: will be replaced by UziCLI implementation
+	_ = prompt
+	_ = model
+	return "", fmt.Errorf("not implemented - use UziCLI instead")
+}
+
+func (c *UziClient) SpawnAgentInteractive(opts string) (<-chan struct{}, error) {
+	// Stub: will be replaced by UziCLI implementation
+	_ = opts
+	ch := make(chan struct{})
+	close(ch)
+	return ch, fmt.Errorf("not implemented - use UziCLI instead")
+}
+
 // SpawnAgent helper methods implementation
 
 // AgentConfig represents an agent configuration
@@ -1072,4 +1103,47 @@ func (c *UziCLI) executeAgentCommand(sessionName, commandToUse, promptText, work
 	}
 	
 	return nil
+}
+
+// SpawnAgentInteractive implements the interactive agent creation with progress reporting
+func (c *UziCLI) SpawnAgentInteractive(opts string) (<-chan struct{}, error) {
+	progressChan := make(chan struct{}, 1)
+	
+	// Parse options (format: "agentType:count:prompt")
+	parts := strings.SplitN(opts, ":", 3)
+	if len(parts) != 3 {
+		close(progressChan)
+		return progressChan, fmt.Errorf("invalid options format, expected 'agentType:count:prompt'")
+	}
+	
+	agentType := strings.TrimSpace(parts[0])
+	countStr := strings.TrimSpace(parts[1])
+	prompt := strings.TrimSpace(parts[2])
+	
+	// Validate count
+	count, err := strconv.Atoi(countStr)
+	if err != nil || count < 1 || count > 10 {
+		close(progressChan)
+		return progressChan, fmt.Errorf("invalid count: must be between 1 and 10")
+	}
+	
+	// Start async agent creation
+	go func() {
+		defer close(progressChan)
+		
+		// Create the agent configuration
+		agentsFlag := fmt.Sprintf("%s:%d", agentType, count)
+		
+		// Execute the spawn workflow
+		_, err := c.executeSpawnWorkflow(agentsFlag, prompt)
+		if err != nil {
+			log.Printf("SpawnAgentInteractive failed: %v", err)
+			return
+		}
+		
+		// Signal completion
+		progressChan <- struct{}{}
+	}()
+	
+	return progressChan, nil
 }
