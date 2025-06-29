@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -26,27 +25,41 @@ type AgentState struct {
 
 type StateManager struct {
 	statePath string
+	fs        FileSystem
+	cmdExec   CommandExecutor
 }
 
+// NewStateManager creates a StateManager with default dependencies
+// This maintains backward compatibility while enabling dependency injection
 func NewStateManager() *StateManager {
-	homeDir, err := os.UserHomeDir()
+	return NewStateManagerWithDeps(NewDefaultFileSystem(), &DefaultCommandExecutor{})
+}
+
+// NewStateManagerWithDeps creates a StateManager with injected dependencies
+// This follows the Dependency Inversion Principle for testability
+func NewStateManagerWithDeps(fs FileSystem, cmdExec CommandExecutor) *StateManager {
+	homeDir, err := fs.UserHomeDir()
 	if err != nil {
 		log.Error("Error getting home directory", "error", err)
 		return nil
 	}
 
 	statePath := filepath.Join(homeDir, ".local", "share", "uzi", "state.json")
-	return &StateManager{statePath: statePath}
+	return &StateManager{
+		statePath: statePath,
+		fs:        fs,
+		cmdExec:   cmdExec,
+	}
 }
 
 func (sm *StateManager) ensureStateDir() error {
 	dir := filepath.Dir(sm.statePath)
-	return os.MkdirAll(dir, 0755)
+	return sm.fs.MkdirAll(dir, 0755)
 }
 
+// getGitRepo uses injected CommandExecutor for testability
 func (sm *StateManager) getGitRepo() string {
-	cmd := exec.Command("git", "config", "--get", "remote.origin.url")
-	output, err := cmd.Output()
+	output, err := sm.cmdExec.ExecuteCommand("git", "config", "--get", "remote.origin.url")
 	if err != nil {
 		log.Debug("Could not get git remote URL", "error", err)
 		return ""
@@ -54,10 +67,10 @@ func (sm *StateManager) getGitRepo() string {
 	return strings.TrimSpace(string(output))
 }
 
+// getBranchFrom uses injected CommandExecutor for testability
 func (sm *StateManager) getBranchFrom() string {
 	// Get the main/master branch name
-	cmd := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD")
-	output, err := cmd.Output()
+	output, err := sm.cmdExec.ExecuteCommand("git", "symbolic-ref", "refs/remotes/origin/HEAD")
 	if err != nil {
 		// Fallback to main
 		return "main"
@@ -71,23 +84,25 @@ func (sm *StateManager) getBranchFrom() string {
 	return "main"
 }
 
+// isActiveInTmux uses injected CommandExecutor for testability
 func (sm *StateManager) isActiveInTmux(sessionName string) bool {
-	cmd := exec.Command("tmux", "has-session", "-t", sessionName)
-	return cmd.Run() == nil
+	err := sm.cmdExec.RunCommand("tmux", "has-session", "-t", sessionName)
+	return err == nil
 }
 
 func (sm *StateManager) GetActiveSessionsForRepo() ([]string, error) {
-	// Load existing state
+	// Load existing state using injected filesystem
 	states := make(map[string]AgentState)
-	if data, err := os.ReadFile(sm.statePath); err != nil {
+	data, err := sm.fs.ReadFile(sm.statePath)
+	if err != nil {
 		if os.IsNotExist(err) {
 			return []string{}, nil
 		}
 		return nil, err
-	} else {
-		if err := json.Unmarshal(data, &states); err != nil {
-			return nil, err
-		}
+	}
+
+	if err := json.Unmarshal(data, &states); err != nil {
+		return nil, err
 	}
 
 	currentRepo := sm.getGitRepo()
@@ -114,9 +129,9 @@ func (sm *StateManager) SaveStateWithPort(prompt, branchName, sessionName, workt
 		return err
 	}
 
-	// Load existing state
+	// Load existing state using injected filesystem
 	states := make(map[string]AgentState)
-	if data, err := os.ReadFile(sm.statePath); err == nil {
+	if data, err := sm.fs.ReadFile(sm.statePath); err == nil {
 		json.Unmarshal(data, &states)
 	}
 
@@ -147,18 +162,18 @@ func (sm *StateManager) SaveStateWithPort(prompt, branchName, sessionName, workt
 		log.Error("Error storing worktree branch", "error", err)
 	}
 
-	// Save to file
+	// Save to file using injected filesystem
 	data, err := json.MarshalIndent(states, "", "  ")
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(sm.statePath, data, 0644)
+	return sm.fs.WriteFile(sm.statePath, data, 0644)
 }
 
+// getCurrentBranch uses injected CommandExecutor for testability
 func (sm *StateManager) getCurrentBranch() string {
-	cmd := exec.Command("git", "branch", "--show-current")
-	output, err := cmd.Output()
+	output, err := sm.cmdExec.ExecuteCommand("git", "branch", "--show-current")
 	if err != nil {
 		log.Debug("Could not get current branch", "error", err)
 		return ""
@@ -166,14 +181,15 @@ func (sm *StateManager) getCurrentBranch() string {
 	return strings.TrimSpace(string(output))
 }
 
+// storeWorktreeBranch uses injected dependencies for testability
 func (sm *StateManager) storeWorktreeBranch(sessionName string) error {
-	homeDir, err := os.UserHomeDir()
+	homeDir, err := sm.fs.UserHomeDir()
 	if err != nil {
 		return err
 	}
 
 	agentDir := filepath.Join(homeDir, ".local", "share", "uzi", "worktree", sessionName)
-	if err := os.MkdirAll(agentDir, 0755); err != nil {
+	if err := sm.fs.MkdirAll(agentDir, 0755); err != nil {
 		return err
 	}
 
@@ -183,7 +199,7 @@ func (sm *StateManager) storeWorktreeBranch(sessionName string) error {
 		return nil
 	}
 
-	return os.WriteFile(branchFile, []byte(currentBranch), 0644)
+	return sm.fs.WriteFile(branchFile, []byte(currentBranch), 0644)
 }
 
 func (sm *StateManager) GetStatePath() string {

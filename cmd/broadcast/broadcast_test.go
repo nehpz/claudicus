@@ -1964,7 +1964,6 @@ func TestMaximumCodePathHitting(t *testing.T) {
 				t.Logf("Executor %d Args %d: %v", i, j, err)
 			})
 		}
-		}
 	}
 }
 
@@ -2148,16 +2147,16 @@ func TestRepetitiveExecution(t *testing.T) {
 			var executor CommandExecutor
 			switch i % 3 {
 			case 0:
-				executor =  26MockCommandExecutor{}
+				executor = &MockCommandExecutor{}
 			case 1:
-				executor =  26MockCommandExecutor{shouldFail: true}
+				executor = &MockCommandExecutor{shouldFail: true}
 			case 2:
-				executor =  26RealCommandExecutor{}
+				executor = &RealCommandExecutor{}
 			}
 
 			err := executeBroadcast(ctx, args, executor)
 
-			if err != nil  26 26 err.Error() == "message argument is required" {
+			if err != nil && err.Error() == "message argument is required" {
 				t.Error("Should not get argument validation error")
 			}
 
@@ -2166,5 +2165,4 @@ func TestRepetitiveExecution(t *testing.T) {
 			}
 		})
 	}
-}
 }

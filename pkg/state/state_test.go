@@ -38,6 +38,7 @@ func TestEnsureStateDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "test", "state.json"),
+		fs:        NewDefaultFileSystem(),
 	}
 
 	err := sm.ensureStateDir()
@@ -57,6 +58,8 @@ func TestSaveAndRemoveState(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 
 	// Test saving state
@@ -127,6 +130,8 @@ func TestSaveStateWithPort(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 
 	err := sm.SaveStateWithPort("test prompt", "test-branch", "test-session", "/test/path", "test-model", 3000)
@@ -155,6 +160,8 @@ func TestGetWorktreeInfo(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 
 	// First save a state
@@ -200,6 +207,8 @@ func TestGetActiveSessionsForRepoNoFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "non-existent.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 
 	sessions, err := sm.GetActiveSessionsForRepo()
@@ -219,6 +228,8 @@ func TestAgentStateTimestamps(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 
 	// Save initial state
@@ -330,6 +341,8 @@ func TestStoreWorktreeBranch(t *testing.T) {
 	// Create a StateManager that will write to temp directory
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 	
 	// This will likely fail since we're not in a git repo, but test that it doesn't crash
@@ -345,6 +358,8 @@ func TestGetActiveSessionsForRepoWithRepo(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 	
 	// Save a test state first
@@ -409,6 +424,8 @@ func TestSaveStateExistingCorruptedJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	sm := &StateManager{
 		statePath: filepath.Join(tmpDir, "state.json"),
+		fs:        NewDefaultFileSystem(),
+		cmdExec:   &DefaultCommandExecutor{},
 	}
 	
 	// Write corrupted JSON
